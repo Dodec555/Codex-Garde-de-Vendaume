@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Codex de la Garde — Estemarche</title>
+<meta name="description" content="Barème des délits et crimes, recueil des lois d'Estemarche et calcul des sanctions pour la Garde de Vendeaume.">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="preconnect" href="https://api.fontshare.com">
+<link href="https://api.fontshare.com/v2/css?f[]=boska@500,700&f[]=switzer@400,500,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip" href="#main">Aller au contenu</a>
+<header class="topbar">
+  <div class="brand">
+    <img class="logo" src="logo.png" alt="Emblème de Vendeaume" width="44" height="43">
+    <div class="brand-text">
+      <span class="brand-title">Codex de la Garde</span>
+      <span class="brand-sub">Châtellerie d'Estemarche · Vendeaume</span>
+    </div>
+  </div>
+  <nav class="tabs" aria-label="Sections">
+    <a href="#/bareme" data-tab="bareme">Barème</a>
+    <a href="#/rapport" data-tab="rapport">Rapport</a>
+    <a href="#/dossier" data-tab="dossier">Dossier <span class="badge" id="dossier-count" hidden>0</span></a>
+    <a href="#/recueil" data-tab="recueil">Recueil des lois</a>
+    <a href="#/casque" data-tab="casque">Casque &amp; masque</a>
+  </nav>
+  <button class="icon-btn" id="theme-toggle" type="button" aria-label="Changer de thème">
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+  </button>
+</header>
+
+<main id="main">
+  <!-- BARÈME -->
+  <section class="view" id="view-bareme" hidden>
+    <div class="view-head">
+      <div>
+        <h1>Barème des infractions</h1>
+        <p class="lede">Décrivez les faits : l'outil retrouve l'infraction, sa catégorie, la sanction et l'article de loi.</p>
+      </div>
+    </div>
+    <div class="searchbar">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="q" type="search" placeholder="Ex. : capuche, bâton, étal, vol, géant, insulte au Jarl…" autocomplete="off" aria-label="Rechercher une infraction">
+      <kbd>/</kbd>
+    </div>
+    <div class="filters" role="group" aria-label="Filtres">
+      <div class="chips" id="cat-chips">
+        <button type="button" class="chip is-on" data-cat="all">Tout</button>
+        <button type="button" class="chip" data-cat="delit"><i class="dot dot-delit"></i>Délits</button>
+        <button type="button" class="chip" data-cat="crime"><i class="dot dot-crime"></i>Crimes</button>
+      </div>
+      <select id="dom-select" aria-label="Domaine"></select>
+    </div>
+    <p class="result-count" id="result-count" aria-live="polite"></p>
+    <ul class="inf-list" id="inf-list"></ul>
+  </section>
+
+  <!-- RAPPORT -->
+  <section class="view" id="view-rapport" hidden>
+    <div class="view-head">
+      <div>
+        <h1>Générateur de rapport</h1>
+        <p class="lede">Même modèle que le générateur PowerShell : les rubriques laissées vides ne sont pas générées, et le rapport se copie en un clic.</p>
+      </div>
+    </div>
+    <div class="rapport-grid">
+      <form class="rapport-form" id="rapport-form" autocomplete="off">
+        <fieldset class="r-meta">
+          <legend>En-tête</legend>
+          <label>Auteur<input type="text" name="auteur" placeholder="Ex. : Lieutenant Arthur"></label>
+          <label>Date et heure<span class="inline"><input type="text" name="date" id="r-date"><button type="button" class="btn btn-ghost sm" id="r-now">Maintenant</button></span></label>
+          <label class="full">Lieu<input type="text" name="lieu" placeholder="Ex. : Marché de Vendeaume"></label>
+        </fieldset>
+        <fieldset>
+          <legend>Priorité</legend>
+          <label class="opt"><input type="radio" name="priorite" value="" checked><span>Ignorer</span></label>
+          <label class="opt"><input type="radio" name="priorite" value="🟢 Basse"><span><i class="dot dot-ok"></i>Basse</span></label>
+          <label class="opt"><input type="radio" name="priorite" value="🟠 Moyenne"><span><i class="dot dot-delit"></i>Moyenne</span></label>
+          <label class="opt"><input type="radio" name="priorite" value="🔴 Haute"><span><i class="dot dot-crime"></i>Haute</span></label>
+        </fieldset>
+        <fieldset>
+          <legend>Statut</legend>
+          <label class="opt"><input type="radio" name="statut" value="" checked><span>Ignorer</span></label>
+          <label class="opt"><input type="radio" name="statut" value="Signalé"><span>Signalé</span></label>
+          <label class="opt"><input type="radio" name="statut" value="En cours"><span>En cours</span></label>
+          <label class="opt"><input type="radio" name="statut" value="Résolu"><span>Résolu</span></label>
+        </fieldset>
+        <fieldset class="r-sections">
+          <legend>Contenu du rapport</legend>
+          <label>Résumé<textarea name="resume" rows="3"></textarea></label>
+          <label>Personnes concernées<textarea name="personnes" rows="3"></textarea></label>
+          <label>Faits confirmés<textarea name="faits" rows="3"></textarea></label>
+          <label>Informations à vérifier<textarea name="verifier" rows="3"></textarea></label>
+          <label><span class="lbl-row">Mesures prises<button type="button" class="btn btn-ghost sm" id="r-import">Importer le dossier</button></span><textarea name="mesures" rows="4"></textarea></label>
+          <label>Suite recommandée<textarea name="suite" rows="3"></textarea></label>
+        </fieldset>
+      </form>
+      <aside class="total-card rapport-preview">
+        <h2>Aperçu</h2>
+        <pre class="recap recap-tall" id="r-out"></pre>
+        <div class="total-actions">
+          <button class="btn btn-primary" id="r-copy" type="button">Copier le rapport</button>
+          <button class="btn btn-ghost" id="r-reset" type="button">Nouveau</button>
+        </div>
+        <p class="copy-msg" id="r-msg" aria-live="polite"></p>
+      </aside>
+    </div>
+  </section>
+
+  <!-- DOSSIER -->
+  <section class="view" id="view-dossier" hidden>
+    <div class="view-head">
+      <div>
+        <h1>Dossier d'interpellation</h1>
+        <p class="lede">Cumulez les infractions relevées, choisissez la peine quand la loi laisse le choix, puis importez le récapitulatif dans l'onglet Rapport.</p>
+      </div>
+    </div>
+    <div class="dossier-grid">
+      <div>
+        <div class="form-row">
+          <label>Contrevenant<input id="d-nom" type="text" placeholder="Nom ou description"></label>
+          <label>Lieu<input id="d-lieu" type="text" placeholder="Ex. : Marché de Vendeaume"></label>
+        </div>
+        <ul class="dossier-list" id="dossier-list"></ul>
+        <div class="empty" id="dossier-empty">
+          <p><strong>Aucune infraction dans le dossier.</strong></p>
+          <p>Depuis le barème, utilisez « Ajouter au dossier » sur chaque infraction relevée.</p>
+          <a class="btn" href="#/bareme">Ouvrir le barème</a>
+        </div>
+      </div>
+      <aside class="total-card" id="total-card">
+        <h2>Sanction totale</h2>
+        <div class="total-lines" id="total-lines"></div>
+        <h3>Récapitulatif pour le rapport</h3>
+        <pre class="recap" id="recap"></pre>
+        <div class="total-actions">
+          <button class="btn btn-primary" id="to-rapport" type="button">Envoyer vers le rapport</button>
+          <button class="btn" id="copy-recap" type="button">Copier</button>
+          <button class="btn btn-ghost" id="clear-dossier" type="button">Vider</button>
+        </div>
+        <p class="copy-msg" id="copy-msg" aria-live="polite"></p>
+      </aside>
+    </div>
+  </section>
+
+  <!-- RECUEIL -->
+  <section class="view" id="view-recueil" hidden>
+    <div class="recueil">
+      <aside class="toc" id="toc" aria-label="Sommaire"></aside>
+      <div class="recueil-main">
+        <div class="view-head">
+          <div>
+            <h1>Recueil des lois d'Estemarche</h1>
+            <p class="lede">Texte intégral des codes, lois et décrets. Les infractions liées renvoient au barème.</p>
+          </div>
+        </div>
+        <div class="searchbar">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="q-lois" type="search" placeholder="Rechercher dans les textes : Thing, sel, Lame du Trône…" autocomplete="off" aria-label="Rechercher dans les lois">
+        </div>
+        <p class="result-count" id="lois-count" aria-live="polite"></p>
+        <div id="lois"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CASQUE -->
+  <section class="view" id="view-casque" hidden>
+    <div class="view-head">
+      <div>
+        <h1>Casque, capuche &amp; masque</h1>
+        <p class="lede">Répondez aux questions : la conduite à tenir s'affiche selon le lieu, la personne et le nombre d'interpellations.</p>
+      </div>
+    </div>
+    <div class="casque-grid">
+      <form class="casque-form" id="casque-form">
+        <fieldset>
+          <legend>Où se trouve la personne ?</legend>
+          <label class="opt"><input type="radio" name="lieu" value="ville" checked><span>En ville, à Vendeaume</span></label>
+          <label class="opt"><input type="radio" name="lieu" value="hors"><span>Hors des murs (Estemarche)</span></label>
+          <label class="opt"><input type="radio" name="lieu" value="palais"><span>Au Palais des Rois</span></label>
+        </fieldset>
+        <fieldset id="fs-urgence">
+          <legend>État d'urgence déclaré ?</legend>
+          <label class="opt"><input type="radio" name="urgence" value="non" checked><span>Non</span></label>
+          <label class="opt"><input type="radio" name="urgence" value="oui"><span>Oui</span></label>
+        </fieldset>
+        <fieldset>
+          <legend>Que porte-t-elle ?</legend>
+          <label class="opt"><input type="radio" name="piece" value="casque" checked><span>Casque / heaume</span></label>
+          <label class="opt"><input type="radio" name="piece" value="masque"><span>Capuche / masque</span></label>
+        </fieldset>
+        <fieldset>
+          <legend>Qui est-ce ?</legend>
+          <select name="qui" id="qui">
+            <option value="civil">Citoyen ou voyageur ordinaire</option>
+            <option value="cour">Membre de la Cour de Vendeaume</option>
+            <option value="pretre">Prêtre</option>
+            <option value="mage">Mage</option>
+            <option value="hullen">Hullen Tong / Compagnie Orientale</option>
+            <option value="penitus">Penitus Oculatus</option>
+            <option value="thalmor">Thalmor</option>
+            <option value="legion">Légion impériale (en tenue)</option>
+            <option value="legion-civil">Légionnaire hors tenue</option>
+            <option value="garde-ext">Garde d'une autre châtellerie</option>
+            <option value="jarl">Personne autorisée par le Jarl</option>
+          </select>
+        </fieldset>
+        <fieldset id="fs-fois">
+          <legend>Combien de fois l'avez-vous déjà reprise ?</legend>
+          <label class="opt"><input type="radio" name="fois" value="1" checked><span>Première fois</span></label>
+          <label class="opt"><input type="radio" name="fois" value="2"><span>Deuxième fois</span></label>
+          <label class="opt"><input type="radio" name="fois" value="3"><span>Troisième fois ou plus</span></label>
+        </fieldset>
+        <fieldset>
+          <legend>Refuse-t-elle de retirer sa pièce lors d'un contrôle ?</legend>
+          <label class="opt"><input type="radio" name="refus" value="non" checked><span>Non</span></label>
+          <label class="opt"><input type="radio" name="refus" value="oui"><span>Oui</span></label>
+        </fieldset>
+      </form>
+      <aside class="verdict" id="verdict" aria-live="polite"></aside>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <span>Codex de la Garde — d'après « Les Lois d'Estemarche ». Le Corpus Juriscivilis Imperialis cité par les textes n'est pas inclus.</span>
+</footer>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="laws.js"></script>
+<script src="infractions.js"></script>
+<script src="app.js"></script>
+<script data-pplx-inline-edit>
+(function () {
+  if (window === window.top) return;
+
+  const allowedParentOrigins = ["https://www.perplexity.ai","https://perplexity.ai","https://testing.perplexity.ai","https://staging.perplexity.ai","https://*.preview.i.perplexity.ai","http://perplexity.localhost","http://localhost:1420","http://127.0.0.1:1420","http://localhost:3000","http://127.0.0.1:3000","http://localhost:5173","http://127.0.0.1:5173"];
+  const MAX_FONT_BYTES = 500 * 1024;
+  const MAX_TOTAL_FONT_BYTES = 2 * 1024 * 1024;
+  let scrollForwarding = false;
+  let scrollRaf = 0;
+  let trustedTopOrigin = null;
+
+  // Allow entries like "https://*.preview.i.perplexity.ai" — the wildcard
+  // matches a single DNS label (no dots), so "https://*.foo" cannot stretch
+  // across multiple labels.
+  function matchesAllowedOrigin(origin) {
+    if (!origin) return false;
+    for (const entry of allowedParentOrigins) {
+      if (!entry.includes("*")) {
+        if (entry === origin) return true;
+        continue;
+      }
+      const pattern = new RegExp(
+        "^" +
+          entry.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, "[^.]+") +
+          "$",
+      );
+      if (pattern.test(origin)) return true;
+    }
+    return false;
+  }
+
+  // Trust decision: when the sender is same-origin-visible (event.origin is a
+  // real origin like https://www.perplexity.ai) we trust event.origin directly.
+  // When event.origin is "null" (opaque broker srcdoc), we fall back to the
+  // broker's stamped `parentOrigin` to identify the top window. The fallback
+  // is claim-only — we rely on the browser's native `targetOrigin` enforcement
+  // on the response path (see postToTrustedTop) to ensure replies can't be
+  // delivered to anyone but the actual top window of that claimed origin.
+  function getTrustedParentOrigin(event) {
+    const forwardedParentOrigin =
+      typeof event.data.parentOrigin === "string" ? event.data.parentOrigin : null;
+    const parentOrigin = event.origin === "null" ? forwardedParentOrigin : event.origin;
+    return matchesAllowedOrigin(parentOrigin) ? parentOrigin : null;
+  }
+
+  // All responses go to window.top with targetOrigin = the allowlisted origin.
+  // An attacker that iframes us inside their own null-origin broker can claim
+  // any parentOrigin they like, but the browser will drop the reply whenever
+  // the real top's origin doesn't match — so the screenshot never leaves.
+  function postToTrustedTop(message) {
+    if (!trustedTopOrigin) return;
+    try {
+      window.top.postMessage(message, trustedTopOrigin);
+    } catch (_error) {}
+  }
+
+  function inlineAll(original, clone) {
+    if (original.nodeType !== 1 || clone.nodeType !== 1) return;
+
+    try {
+      const computedStyle = getComputedStyle(original);
+      // cssText on a computed style is the serialized declaration in modern
+      // Chromium/Safari — a single read beats enumerating ~400 longhand
+      // properties. Firefox returns "" here, so we fall back on empty.
+      const serialized = computedStyle.cssText;
+      if (serialized) {
+        clone.style.cssText = serialized;
+      } else {
+        const parts = new Array(computedStyle.length);
+        for (let index = 0; index < computedStyle.length; index += 1) {
+          const property = computedStyle[index];
+          parts[index] = `${property}:${computedStyle.getPropertyValue(property)};`;
+        }
+        clone.style.cssText = parts.join("");
+      }
+    } catch (_error) {}
+
+    const originalChildren = original.children;
+    const clonedChildren = clone.children;
+    for (
+      let index = 0;
+      index < originalChildren.length && index < clonedChildren.length;
+      index += 1
+    ) {
+      inlineAll(originalChildren[index], clonedChildren[index]);
+    }
+  }
+
+  function extractFontUrl(srcValue) {
+    const matches = [
+      ...srcValue.matchAll(
+        /url\(["']?([^"')]+)["']?\)(?:\s*format\(["']?([^"')]+)["']?\))?/gi,
+      ),
+    ];
+    if (matches.length === 0) return null;
+    const woff2 = matches.find((m) => m[2] && m[2].toLowerCase().includes("woff2"));
+    if (woff2) return woff2[1];
+    const woff = matches.find((m) => m[2] && m[2].toLowerCase().includes("woff"));
+    if (woff) return woff[1];
+    return matches[0][1];
+  }
+
+  // Cache resolved font URL -> data URI across captures. Fonts on a page
+  // essentially never change, and a batch run emits multiple captures back to
+  // back — without this we'd refetch + re-base64 every time.
+  const fontDataUriCache = new Map();
+  const SRC_DECLARATION_RE = /src\s*:\s*[^;}]+/i;
+
+  async function fetchAsDataUri(url) {
+    if (fontDataUriCache.has(url)) return fontDataUriCache.get(url);
+    let dataUri = null;
+    try {
+      const response = await fetch(url, { mode: "cors", credentials: "omit" });
+      if (response.ok) {
+        const blob = await response.blob();
+        if (blob.size <= MAX_FONT_BYTES) {
+          dataUri = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () =>
+              resolve(typeof reader.result === "string" ? reader.result : null);
+            reader.onerror = () => resolve(null);
+            reader.readAsDataURL(blob);
+          });
+        }
+      }
+    } catch (_error) {
+      dataUri = null;
+    }
+    fontDataUriCache.set(url, dataUri);
+    return dataUri;
+  }
+
+  function collectFontFaceRuleTexts() {
+    const rules = [];
+    for (const sheet of document.styleSheets) {
+      let cssRules;
+      try {
+        cssRules = sheet.cssRules;
+      } catch (_error) {
+        continue;
+      }
+      if (!cssRules) continue;
+      for (const rule of cssRules) {
+        const cssText = rule.cssText || "";
+        if (cssText.startsWith("@font-face")) rules.push(cssText);
+      }
+    }
+    return rules;
+  }
+
+  async function buildInlinedFontCss() {
+    const ruleTexts = collectFontFaceRuleTexts();
+    if (ruleTexts.length === 0) return null;
+
+    const resolved = ruleTexts.map((cssText) => {
+      if (!SRC_DECLARATION_RE.test(cssText)) return null;
+      const srcMatch = cssText.match(/src\s*:\s*([^;}]+)[;}]/i);
+      if (!srcMatch) return null;
+      const url = extractFontUrl(srcMatch[1]);
+      if (!url) return null;
+      try {
+        return { cssText, url: new URL(url, document.baseURI).href };
+      } catch (_error) {
+        return null;
+      }
+    });
+
+    const dataUris = await Promise.all(
+      resolved.map((entry) => (entry ? fetchAsDataUri(entry.url) : Promise.resolve(null))),
+    );
+
+    const inlined = [];
+    let totalBytes = 0;
+    for (let index = 0; index < resolved.length; index += 1) {
+      const entry = resolved[index];
+      const dataUri = dataUris[index];
+      if (!entry || !dataUri) continue;
+      const approxBytes = dataUri.length * 0.75;
+      if (totalBytes + approxBytes > MAX_TOTAL_FONT_BYTES) break;
+      totalBytes += approxBytes;
+      inlined.push(entry.cssText.replace(SRC_DECLARATION_RE, `src: url("${dataUri}")`));
+    }
+    return inlined.length > 0 ? inlined.join("\n") : null;
+  }
+
+  function stripExternal(clone) {
+    const images = clone.querySelectorAll("img");
+    for (let index = 0; index < images.length; index += 1) {
+      const src = images[index].getAttribute("src");
+      if (src && !src.startsWith("data:")) images[index].removeAttribute("src");
+    }
+
+    const elements = clone.querySelectorAll("*");
+    for (let index = 0; index < elements.length; index += 1) {
+      const style = elements[index].style.cssText;
+      if (style && style.includes("url(")) {
+        elements[index].style.cssText = style.replace(
+          /url\(["']?(?!data:)[^)"']*["']?\)/gi,
+          "none",
+        );
+      }
+    }
+  }
+
+  function emitScroll() {
+    scrollRaf = 0;
+    if (!scrollForwarding) return;
+    postToTrustedTop({
+      type: "INLINE_EDIT_SCROLL",
+      scrollX: window.scrollX,
+      scrollY: window.scrollY,
+    });
+  }
+
+  window.addEventListener(
+    "scroll",
+    function () {
+      if (!scrollForwarding || scrollRaf) return;
+      scrollRaf = requestAnimationFrame(emitScroll);
+    },
+    { passive: true, capture: true },
+  );
+
+  async function handleCaptureRequest(event) {
+    const requestId = event.data.requestId;
+    const scrollX = window.scrollX;
+    const scrollY = window.scrollY;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    function postResult(dataUrl) {
+      postToTrustedTop({
+        type: "INLINE_EDIT_SCREENSHOT_RESULT",
+        requestId,
+        dataUrl,
+        scrollX,
+        scrollY,
+      });
+    }
+
+    try {
+      // Wait for any pending web fonts to resolve so both inline metrics and
+      // the @font-face inlining below see the same loaded faces.
+      if (document.fonts && document.fonts.ready) {
+        try {
+          await document.fonts.ready;
+        } catch (_error) {}
+      }
+
+      const clone = document.documentElement.cloneNode(true);
+      inlineAll(document.documentElement, clone);
+
+      const removedNodes = clone.querySelectorAll("script,link[rel=\"stylesheet\"],style");
+      for (let index = 0; index < removedNodes.length; index += 1) {
+        removedNodes[index].remove();
+      }
+
+      stripExternal(clone);
+
+      // Re-embed web fonts as data-URI @font-face rules so the SVG rasterizer
+      // can resolve them — external font URLs aren't fetched during
+      // foreignObject rendering, which would otherwise force a fallback face
+      // and change text metrics.
+      const inlinedFontCss = await buildInlinedFontCss();
+      if (inlinedFontCss) {
+        const styleEl = document.createElement("style");
+        styleEl.textContent = inlinedFontCss;
+        const head = clone.querySelector("head");
+        if (head) head.appendChild(styleEl);
+        else clone.insertBefore(styleEl, clone.firstChild);
+      }
+
+      const html = new XMLSerializer().serializeToString(clone);
+      const svg =
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">` +
+        '<foreignObject width="100%" height="100%">' +
+        `<div xmlns="http://www.w3.org/1999/xhtml" style="width:${width}px;height:${height}px;overflow:hidden">` +
+        `<div style="position:relative;left:-${scrollX}px;top:-${scrollY}px">` +
+        html +
+        "</div></div></foreignObject></svg>";
+      const svgUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+      const image = new Image();
+      image.onload = function () {
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext("2d").drawImage(image, 0, 0);
+        postResult(canvas.toDataURL("image/png"));
+      };
+      image.onerror = function () {
+        postResult(null);
+      };
+      image.src = svgUrl;
+    } catch (_error) {
+      postResult(null);
+    }
+  }
+
+  window.addEventListener("message", function (event) {
+    if (!event.data) return;
+    // Only accept messages from the direct parent frame. Blocks sibling /
+    // unrelated-window postMessage senders that could otherwise reach us.
+    if (event.source !== window.parent) return;
+
+    const trustedParentOrigin = getTrustedParentOrigin(event);
+    if (!trustedParentOrigin) return;
+    trustedTopOrigin = trustedParentOrigin;
+
+    if (event.data.type === "INLINE_EDIT_SCROLL_START") {
+      scrollForwarding = true;
+      emitScroll();
+      return;
+    }
+
+    if (event.data.type === "INLINE_EDIT_SCROLL_STOP") {
+      scrollForwarding = false;
+      if (scrollRaf) cancelAnimationFrame(scrollRaf);
+      scrollRaf = 0;
+      return;
+    }
+
+    if (event.data.type !== "INLINE_EDIT_CAPTURE_REQUEST") return;
+
+    handleCaptureRequest(event);
+  });
+})();
+
+
+</script></body>
+</html>
