@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Codex de la Garde — Estemarche</title>
-<meta name="description" content="Barème des délits et crimes, recueil des lois d'Estemarche et calcul des sanctions pour la Garde de Vendeaume.">
+<meta name="description" content="Barème des contraventions, délits et crimes, Grand Codex d'Estemarche, fiche de poche et mur des croquis pour la Garde de Vendeaume.">
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="preconnect" href="https://api.fontshare.com">
 <link href="https://api.fontshare.com/v2/css?f[]=boska@500,700&f[]=switzer@400,500,600&display=swap" rel="stylesheet">
@@ -25,7 +25,7 @@
     <a href="#/rapport" data-tab="rapport">Rapport</a>
     <a href="#/dossier" data-tab="dossier">Dossier <span class="badge" id="dossier-count" hidden>0</span></a>
     <a href="#/recueil" data-tab="recueil">Recueil des lois</a>
-    <a href="#/casque" data-tab="casque">Casque &amp; masque</a>
+    <a href="#/croquis" data-tab="croquis">Mur des croquis</a>
   </nav>
   <button class="icon-btn" id="theme-toggle" type="button" aria-label="Changer de thème">
     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
@@ -38,17 +38,32 @@
     <div class="view-head">
       <div>
         <h1>Barème des infractions</h1>
-        <p class="lede">Décrivez les faits : l'outil retrouve l'infraction, sa catégorie, la sanction et l'article de loi.</p>
+        <p class="lede">Décrivez les faits : l'outil retrouve l'infraction, sa catégorie, la sanction et l'article du Grand Codex.</p>
       </div>
+    </div>
+    <div class="grille" aria-label="Grille d'équivalence unifiée des peines">
+      <div class="g-head">
+        <p class="g-title">Grille d'équivalence unifiée <a href="#/recueil/codex-vi-2">Codex, Art. VI.2</a></p>
+        <p class="g-sub">Formule tri-partite au choix du prévenu : amende <strong>OU</strong> heures de corvée <strong>OU</strong> heures d'emprisonnement (durées identiques).</p>
+      </div>
+      <ol class="g-rows">
+        <li><span class="pill pill-contravention">Contrav.</span><b>200 – 250 septims</b><span>1 h</span></li>
+        <li><span class="pill pill-contravention">Contrav. sup.</span><b>500 septims</b><span>2 h</span></li>
+        <li><span class="pill pill-delit">Délit mineur</span><b>1 000 septims</b><span>4 h</span></li>
+        <li><span class="pill pill-delit">Délit majeur</span><b>2 000 – 2 500 septims</b><span>8 – 10 h</span></li>
+        <li><span class="pill pill-crime">Crime</span><b>Rétention 24 h max</b><span>Déféré au magistrat</span></li>
+      </ol>
+      <p class="g-note"><strong>Rétention conservatoire (24 h max) obligatoire</strong> en cas de crime, de refus d'exécuter la sanction, de contestation véhémente, d'outrage ou de rébellion, de risque de fuite ou d'identité invérifiable. <a href="#/recueil/fiche-retention-cas">Fiche de poche</a></p>
     </div>
     <div class="searchbar">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-      <input id="q" type="search" placeholder="Ex. : capuche, bâton, étal, vol, géant, insulte au Jarl…" autocomplete="off" aria-label="Rechercher une infraction">
+      <input id="q" type="search" placeholder="Ex. : cor, bâton, vol, malachite, géant, outrage, nécromancie…" autocomplete="off" aria-label="Rechercher une infraction">
       <kbd>/</kbd>
     </div>
     <div class="filters" role="group" aria-label="Filtres">
       <div class="chips" id="cat-chips">
         <button type="button" class="chip is-on" data-cat="all">Tout</button>
+        <button type="button" class="chip" data-cat="contravention"><i class="dot dot-contravention"></i>Contraventions</button>
         <button type="button" class="chip" data-cat="delit"><i class="dot dot-delit"></i>Délits</button>
         <button type="button" class="chip" data-cat="crime"><i class="dot dot-crime"></i>Crimes</button>
       </div>
@@ -154,12 +169,12 @@
         <div class="view-head">
           <div>
             <h1>Recueil des lois d'Estemarche</h1>
-            <p class="lede">Texte intégral des codes, lois et décrets. Les infractions liées renvoient au barème.</p>
+            <p class="lede">Texte intégral du Grand Codex d'Estemarche, suivi de la fiche de poche du garde. Les infractions liées renvoient au barème.</p>
           </div>
         </div>
         <div class="searchbar">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-          <input id="q-lois" type="search" placeholder="Rechercher dans les textes : Thing, sel, Lame du Trône…" autocomplete="off" aria-label="Rechercher dans les lois">
+          <input id="q-lois" type="search" placeholder="Rechercher dans les textes : Thing, Lame du Trône, malachite, rétention…" autocomplete="off" aria-label="Rechercher dans les lois">
         </div>
         <p class="result-count" id="lois-count" aria-live="polite"></p>
         <div id="lois"></div>
@@ -167,73 +182,66 @@
     </div>
   </section>
 
-  <!-- CASQUE -->
-  <section class="view" id="view-casque" hidden>
+  <!-- CROQUIS -->
+  <section class="view" id="view-croquis" hidden>
     <div class="view-head">
       <div>
-        <h1>Casque, capuche &amp; masque</h1>
-        <p class="lede">Répondez aux questions : la conduite à tenir s'affiche selon le lieu, la personne et le nombre d'interpellations.</p>
+        <h1>Mur des croquis</h1>
+        <p class="lede">Plans, portraits-robots et croquis de terrain. Le mur affiche automatiquement les images du dossier «&nbsp;Mur des croquis&nbsp;» du Codex de la Garde.</p>
       </div>
     </div>
-    <div class="casque-grid">
-      <form class="casque-form" id="casque-form">
-        <fieldset>
-          <legend>Où se trouve la personne ?</legend>
-          <label class="opt"><input type="radio" name="lieu" value="ville" checked><span>En ville, à Vendeaume</span></label>
-          <label class="opt"><input type="radio" name="lieu" value="hors"><span>Hors des murs (Estemarche)</span></label>
-          <label class="opt"><input type="radio" name="lieu" value="palais"><span>Au Palais des Rois</span></label>
-        </fieldset>
-        <fieldset id="fs-urgence">
-          <legend>État d'urgence déclaré ?</legend>
-          <label class="opt"><input type="radio" name="urgence" value="non" checked><span>Non</span></label>
-          <label class="opt"><input type="radio" name="urgence" value="oui"><span>Oui</span></label>
-        </fieldset>
-        <fieldset>
-          <legend>Que porte-t-elle ?</legend>
-          <label class="opt"><input type="radio" name="piece" value="casque" checked><span>Casque / heaume</span></label>
-          <label class="opt"><input type="radio" name="piece" value="masque"><span>Capuche / masque</span></label>
-        </fieldset>
-        <fieldset>
-          <legend>Qui est-ce ?</legend>
-          <select name="qui" id="qui">
-            <option value="civil">Citoyen ou voyageur ordinaire</option>
-            <option value="cour">Membre de la Cour de Vendeaume</option>
-            <option value="pretre">Prêtre</option>
-            <option value="mage">Mage</option>
-            <option value="hullen">Hullen Tong / Compagnie Orientale</option>
-            <option value="penitus">Penitus Oculatus</option>
-            <option value="thalmor">Thalmor</option>
-            <option value="legion">Légion impériale (en tenue)</option>
-            <option value="legion-civil">Légionnaire hors tenue</option>
-            <option value="garde-ext">Garde d'une autre châtellerie</option>
-            <option value="jarl">Personne autorisée par le Jarl</option>
-          </select>
-        </fieldset>
-        <fieldset id="fs-fois">
-          <legend>Combien de fois l'avez-vous déjà reprise ?</legend>
-          <label class="opt"><input type="radio" name="fois" value="1" checked><span>Première fois</span></label>
-          <label class="opt"><input type="radio" name="fois" value="2"><span>Deuxième fois</span></label>
-          <label class="opt"><input type="radio" name="fois" value="3"><span>Troisième fois ou plus</span></label>
-        </fieldset>
-        <fieldset>
-          <legend>Refuse-t-elle de retirer sa pièce lors d'un contrôle ?</legend>
-          <label class="opt"><input type="radio" name="refus" value="non" checked><span>Non</span></label>
-          <label class="opt"><input type="radio" name="refus" value="oui"><span>Oui</span></label>
-        </fieldset>
-      </form>
-      <aside class="verdict" id="verdict" aria-live="polite"></aside>
+
+    <div class="cq-source" id="cq-source">
+      <div class="cq-source-text">
+        <p class="g-title">Dossier «&nbsp;Mur des croquis&nbsp;»</p>
+        <p class="g-sub" id="cq-source-status">Lecture du dossier…</p>
+      </div>
+      <button class="btn btn-ghost" type="button" id="cq-refresh">Actualiser</button>
+    </div>
+
+    <div class="cq-toolbar" id="cq-toolbar" hidden>
+      <div class="cq-search">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input type="search" id="cq-q" placeholder="Filtrer les croquis par nom" aria-label="Filtrer les croquis">
+      </div>
+      <span class="g-sub" id="cq-count"></span>
+    </div>
+
+    <div id="cq-groups"></div>
+
+    <div class="cq-help" id="cq-help">
+      <h2>Le mur est vide pour l'instant</h2>
+      <ol>
+        <li>Envoyez vos images (PNG, JPG, WEBP, GIF) dans le dossier <strong>Mur des croquis</strong> du dépôt GitHub du site (bouton «&nbsp;Add file&nbsp;» puis «&nbsp;Upload files&nbsp;»).</li>
+        <li>Les sous-dossiers servent de rubriques (ex. «&nbsp;Plans&nbsp;», «&nbsp;Portraits&nbsp;»). Le nom du fichier sert de titre.</li>
+        <li>Les croquis apparaissent ici d'eux-mêmes, sans autre manipulation. Rechargez la page ou cliquez sur «&nbsp;Actualiser&nbsp;».</li>
+      </ol>
     </div>
   </section>
+
+  <div class="lightbox" id="lightbox" hidden role="dialog" aria-modal="true" aria-label="Croquis agrandi">
+    <button class="icon-btn lb-close" type="button" id="lb-close" aria-label="Fermer">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+    </button>
+    <button class="icon-btn lb-nav lb-prev" type="button" id="lb-prev" aria-label="Croquis précédent">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m15 6-6 6 6 6"/></svg>
+    </button>
+    <figure><img id="lb-img" alt=""><figcaption id="lb-cap"></figcaption></figure>
+    <button class="icon-btn lb-nav lb-next" type="button" id="lb-next" aria-label="Croquis suivant">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg>
+    </button>
+  </div>
 </main>
 
 <footer class="foot">
-  <span>Codex de la Garde — d'après « Les Lois d'Estemarche ». Le Corpus Juriscivilis Imperialis cité par les textes n'est pas inclus.</span>
+  <span>Codex de la Garde — d'après le Grand Codex d'Estemarche et la Fiche de poche du garde. Les Leges Imperiales (CJI, CPI, CPIr) citées par les textes ne sont pas incluses.</span>
 </footer>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="laws.js"></script>
 <script src="infractions.js"></script>
+<script src="config.js"></script>
 <script src="app.js"></script>
 <script data-pplx-inline-edit>
 (function () {
@@ -242,6 +250,7 @@
   const allowedParentOrigins = ["https://www.perplexity.ai","https://perplexity.ai","https://testing.perplexity.ai","https://staging.perplexity.ai","https://*.preview.i.perplexity.ai","http://perplexity.localhost","http://localhost:1420","http://127.0.0.1:1420","http://localhost:3000","http://127.0.0.1:3000","http://localhost:5173","http://127.0.0.1:5173"];
   const MAX_FONT_BYTES = 500 * 1024;
   const MAX_TOTAL_FONT_BYTES = 2 * 1024 * 1024;
+  const DEFAULT_LINE_HEIGHT = 16;
   let scrollForwarding = false;
   let scrollRaf = 0;
   let trustedTopOrigin = null;
@@ -289,6 +298,91 @@
     try {
       window.top.postMessage(message, trustedTopOrigin);
     } catch (_error) {}
+  }
+
+  const PICK_CAPABILITIES = ["pick"];
+  const PICK_CHAIN_LENGTH = 4;
+  const PICK_MAX_TEXT_CHARS = 120;
+  const PICK_MAX_HTML_CHARS = 300;
+
+  function truncate(value, maxChars) {
+    return value.length > maxChars ? value.slice(0, maxChars - 1) + "…" : value;
+  }
+
+  function isPickableElement(element) {
+    return (
+      element instanceof Element &&
+      element !== document.documentElement &&
+      element !== document.body
+    );
+  }
+
+  function resolvePickTarget(x, y) {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+    const element = document.elementFromPoint(x, y);
+    return isPickableElement(element) ? element.closest("svg") || element : null;
+  }
+
+  function pickLabel(element) {
+    if (element.id) return element.localName + "#" + element.id;
+    return [element.localName].concat(Array.from(element.classList).slice(0, 2)).join(".");
+  }
+
+  // Only attributes that help find the element in source. data-* values and URL
+  // query strings or fragments can carry tokens.
+  const PICK_ATTRIBUTES = new Set([
+    "id",
+    "class",
+    "name",
+    "type",
+    "role",
+    "alt",
+    "aria-label",
+    "href",
+    "src",
+  ]);
+
+  function pickAttributeValue(attribute) {
+    return attribute.name === "href" || attribute.name === "src"
+      ? attribute.value.split(/[?#]/)[0]
+      : attribute.value;
+  }
+
+  function describePickElement(element) {
+    const chain = [];
+    for (
+      let current = element;
+      isPickableElement(current) && chain.length < PICK_CHAIN_LENGTH;
+      current = current.parentElement
+    ) {
+      chain.unshift(current);
+    }
+    const attributes = Array.from(element.attributes)
+      .filter((attribute) => PICK_ATTRIBUTES.has(attribute.name))
+      .map((attribute) => ` ${attribute.name}="${pickAttributeValue(attribute).replace(/"/g, "&quot;")}"`)
+      .join("");
+    const text = (element.innerText || element.textContent || "").replace(/\s+/g, " ").trim();
+    return {
+      chain: chain.map(pickLabel),
+      html: truncate(`<${element.localName}${attributes}>`, PICK_MAX_HTML_CHARS),
+      text: text ? truncate(text, PICK_MAX_TEXT_CHARS) : undefined,
+    };
+  }
+
+  // Hover asks once per frame, and innerText on a large section forces layout,
+  // so only the rect is re-read while the pointer stays on the same element.
+  // Clicks ask for fresh details since the page may have changed the element.
+  let lastPick = null;
+
+  function describePickTarget(element, fresh) {
+    if (fresh || lastPick?.element !== element) {
+      lastPick = { element, details: describePickElement(element) };
+    }
+    const rect = element.getBoundingClientRect();
+    return {
+      rect: { x: rect.left, y: rect.top, width: rect.width, height: rect.height },
+      ...lastPick.details,
+    };
   }
 
   function inlineAll(original, clone) {
@@ -446,6 +540,7 @@
       type: "INLINE_EDIT_SCROLL",
       scrollX: window.scrollX,
       scrollY: window.scrollY,
+      capabilities: PICK_CAPABILITIES,
     });
   }
 
@@ -543,6 +638,16 @@
     if (!trustedParentOrigin) return;
     trustedTopOrigin = trustedParentOrigin;
 
+    if (event.data.type === "INLINE_EDIT_PICK") {
+      const element = resolvePickTarget(event.data.x, event.data.y);
+      postToTrustedTop({
+        type: "INLINE_EDIT_PICK_RESULT",
+        seq: event.data.seq,
+        target: element ? describePickTarget(element, event.data.fresh === true) : null,
+      });
+      return;
+    }
+
     if (event.data.type === "INLINE_EDIT_SCROLL_START") {
       scrollForwarding = true;
       emitScroll();
@@ -553,6 +658,21 @@
       scrollForwarding = false;
       if (scrollRaf) cancelAnimationFrame(scrollRaf);
       scrollRaf = 0;
+      return;
+    }
+
+    if (event.data.type === "INLINE_EDIT_SCROLL_BY") {
+      const { deltaX, deltaY, deltaMode } = event.data;
+      if (!scrollForwarding || !Number.isFinite(deltaX) || !Number.isFinite(deltaY)) return;
+      if (deltaMode !== 0 && deltaMode !== 1 && deltaMode !== 2) return;
+      const lineHeight =
+        parseFloat(getComputedStyle(document.documentElement).lineHeight) || DEFAULT_LINE_HEIGHT;
+      const scaleX = deltaMode === 1 ? lineHeight : deltaMode === 2 ? window.innerWidth : 1;
+      const scaleY = deltaMode === 1 ? lineHeight : deltaMode === 2 ? window.innerHeight : 1;
+      // The selection overlay receives the wheel event instead of this iframe.
+      // Instant scrolling preserves trackpad deltas even on smooth-scroll sites.
+      window.scrollBy({ left: deltaX * scaleX, top: deltaY * scaleY, behavior: "instant" });
+      emitScroll();
       return;
     }
 

@@ -9,6 +9,9 @@
   const esc = s => (s || "").toString().replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const nf = n => n.toLocaleString("fr-FR").replace(/\u202f|\u00a0/g, " ");
   const plural = (n, s, p) => n > 1 ? p : s;
+  const CAT = { contravention: "Contravention", delit: "Délit", crime: "Crime" };
+  const catLabel = c => CAT[c] || c;
+  const CAT_ORDER = { contravention: 0, delit: 1, crime: 2 };
 
   // Article index
   const ART = {};
@@ -16,7 +19,7 @@
     ART[a.id] = { ...a, law, sec };
   })));
   const artText = a => a.paras.map(p => typeof p === "string" ? p : "• " + p.li).join(" ");
-  const refLabel = id => { const a = ART[id]; if (!a) return id; return `${a.law.titre}, ${a.num.replace("Art. ", "art. ")}`; };
+  const refLabel = id => { const a = ART[id]; if (!a) return id; return a.law.doc === "fiche" ? `Fiche de poche, ${a.num}` : `Codex, ${a.num}`; };
 
   // Infractions linked to an article
   const INF_BY_ART = {};
@@ -25,40 +28,30 @@
   // Search haystack for infractions
   INF.forEach(i => {
     i._hay = norm([i.nom, i.keys, i.qualif, (i.notes || []).join(" "), (i.mesures || []).join(" "), DOM[i.dom],
-      i.cat === "crime" ? "crime" : "delit", i.refs.map(r => ART[r] ? ART[r].titre + " " + ART[r].law.titre : "").join(" ")].join(" "));
+      catLabel(i.cat), i.base, i.refs.map(r => ART[r] ? ART[r].titre + " " + ART[r].law.titre : "").join(" ")].join(" "));
     i._name = norm(i.nom + " " + i.keys);
   });
 
-  const fmtAmende = a => {
-    if (a == null) return null;
-    if (typeof a === "number") return `${nf(a)} septims`;
-    if (!a.min) return `jusqu'à ${nf(a.max)} septims`;
-    return `${nf(a.min)} à ${nf(a.max)} septims`;
-  };
-  const fmtPrison = p => {
-    if (p == null) return null;
-    if (typeof p === "number") return `${p} h d'emprisonnement`;
-    return `jusqu'à ${p.max} h d'emprisonnement`;
-  };
+  const rng = (v, unit) => v == null ? null : typeof v === "number" ? `${nf(v)}${unit}` : `${nf(v.min)} à ${nf(v.max)}${unit}`;
+  const fmtAmende = a => rng(a, " septims");
+  const fmtHeures = h => rng(h, " h");
+  const DEFERE = "Rétention 24 h + déféré au magistrat";
   function sanctionHTML(i) {
-    if (i.peineSpeciale) return `<span class="s-special">${esc(i.peineSpeciale)}</span>`;
-    const parts = [];
-    const a = fmtAmende(i.amende), p = fmtPrison(i.prison);
-    if (a) parts.push(`<span class="s-amende">${i.amendeLabel ? esc(i.amendeLabel) + " " : ""}${a}</span>`);
-    if (p) parts.push(`<span class="s-prison">${p}</span>`);
-    let html = parts.join(i.lien === "ou" ? ` <em class="s-op">ou</em> ` : ` <em class="s-op">+</em> `);
+    let html;
+    if (i.deferre) html = `<span class="s-special">${DEFERE}</span>`;
+    else {
+      const a = fmtAmende(i.amende), h = fmtHeures(i.heures);
+      html = [a && `<span class="s-amende">${a}</span>`, h && `<span class="s-prison">${h} corvée / prison</span>`]
+        .filter(Boolean).join(` <em class="s-op">ou</em> `);
+    }
     (i.mesures || []).forEach(m => { html += ` <em class="s-op">+</em> <span class="s-mesure">${esc(m)}</span>`; });
     return html;
   }
   function sanctionText(i) {
-    if (i.peineSpeciale) return i.peineSpeciale;
-    const parts = [fmtAmende(i.amende), fmtPrison(i.prison)].filter(Boolean);
-    let t = parts.join(i.lien === "ou" ? " ou " : " + ");
-    if (i.amendeLabel && i.amende) t = i.amendeLabel + " " + t;
+    let t = i.deferre ? DEFERE : [fmtAmende(i.amende) && `Amende de ${fmtAmende(i.amende)}`, fmtHeures(i.heures) && `${fmtHeures(i.heures)} de corvée`, fmtHeures(i.heures) && `${fmtHeures(i.heures)} d'emprisonnement`].filter(Boolean).join(" OU ");
     (i.mesures || []).forEach(m => t += " + " + m.charAt(0).toLowerCase() + m.slice(1));
     return t;
   }
-  const catLabel = c => c === "crime" ? "Crime" : "Délit";
 
   function toast(msg) {
     const t = $("#toast"); t.textContent = msg; t.classList.add("show");
@@ -93,7 +86,7 @@
     let list = INF.filter(i => (state.cat === "all" || i.cat === state.cat) && (state.dom === "all" || i.dom === state.dom))
       .map(i => ({ i, s: score(i, tokens) })).filter(x => x.s > 0);
     if (tokens.length) list.sort((a, b) => b.s - a.s);
-    else list.sort((a, b) => (a.i.cat === b.i.cat ? 0 : a.i.cat === "delit" ? -1 : 1));
+    else list.sort((a, b) => CAT_ORDER[a.i.cat] - CAT_ORDER[b.i.cat]);
 
     $("#result-count").textContent = `${list.length} ${plural(list.length, "infraction", "infractions")}` +
       (tokens.length ? ` pour « ${state.q.trim()} »` : "");
@@ -124,13 +117,13 @@
       <dl class="facts">
         <div><dt>Catégorie</dt><dd>${catLabel(i.cat)}</dd></div>
         <div><dt>Sanction</dt><dd>${esc(sanctionText(i))}</dd></div>
-        ${i.qualif ? `<div><dt>Qualification</dt><dd>${esc(i.qualif)}</dd></div>` : ""}
-        <div><dt>Origine</dt><dd>${i.source === "bareme" ? "Barème officiel" : "Déduit des articles du décret"}</dd></div>
+        <div><dt>Fondement légal</dt><dd>${esc(i.base)}</dd></div>
+        <div><dt>Procédure</dt><dd>${i.deferre ? "Arrestation, rétention conservatoire (24 h max) et présentation au magistrat" : "Sanction directe par la Garde ; rétention 24 h en cas de refus ou de contestation"}</dd></div>
       </dl>
       ${i.notes && i.notes.length ? `<ul class="notes">${i.notes.map(n => `<li>${esc(n)}</li>`).join("")}</ul>` : ""}
       ${refs.length ? `<div class="refs"><h4>Textes applicables</h4>${refs.map(a => `
         <blockquote class="ref">
-          <a class="ref-title" href="#/recueil/${a.id}">${esc(a.law.titre)} — ${esc(a.num)} · ${esc(a.titre)}</a>
+          <a class="ref-title" href="#/recueil/${a.id}">${esc(a.law.doc === "fiche" ? "Fiche de poche" : "Grand Codex")} — ${esc(a.num)} · ${esc(a.titre)}</a>
           <p>${esc(artText(a))}</p>
         </blockquote>`).join("")}</div>` : ""}
       <div class="inf-actions">
@@ -163,27 +156,30 @@
   /* ---------- Dossier ---------- */
   let dossier = [];
   let dossierSummary = { mesures: "", nom: "", lieu: "" };
+  const lo = v => v == null ? 0 : typeof v === "number" ? v : v.min;
+  const hi = v => v == null ? 0 : typeof v === "number" ? v : v.max;
+  const MODES = { amende: "Amende", corvee: "Corvée", prison: "Prison" };
   function toggleDossier(id) {
     const idx = dossier.findIndex(d => d.id === id);
     const i = INF.find(x => x.id === id);
     if (idx >= 0) { dossier.splice(idx, 1); toast("Retiré du dossier"); }
     else {
-      const d = { id, choix: i.lien === "ou" ? "amende" : "both" };
-      if (i.amende && typeof i.amende === "object") d.amende = i.amende.min || 0;
-      if (i.prison && typeof i.prison === "object") d.prison = i.prison.max;
-      dossier.push(d); toast("Ajouté au dossier");
+      dossier.push({ id, choix: i.deferre ? "deferre" : "amende", amende: lo(i.amende), heures: lo(i.heures) });
+      toast("Ajouté au dossier");
     }
     renderDossier();
   }
   function lineValues(d) {
     const i = INF.find(x => x.id === d.id);
-    let amende = 0, prison = 0;
-    const a = typeof i.amende === "number" ? i.amende : (i.amende ? d.amende : 0);
-    const p = typeof i.prison === "number" ? i.prison : (i.prison ? d.prison : 0);
-    if (i.lien === "ou") { if (d.choix === "amende") amende = a; else prison = p; }
-    else { amende = a || 0; prison = p || 0; }
-    return { i, amende: amende || 0, prison: prison || 0 };
+    const v = { i, amende: 0, corvee: 0, prison: 0, deferre: !!i.deferre };
+    if (!i.deferre) {
+      if (d.choix === "amende") v.amende = d.amende;
+      else if (d.choix === "corvee") v.corvee = d.heures;
+      else v.prison = d.heures;
+    }
+    return v;
   }
+  const retenuText = v => v.deferre ? DEFERE : v.amende ? `amende de ${nf(v.amende)} septims` : v.corvee ? `${nf(v.corvee)} h de corvée` : `${nf(v.prison)} h d'emprisonnement`;
   function renderDossier() {
     const cnt = $("#dossier-count");
     cnt.hidden = !dossier.length; cnt.textContent = dossier.length;
@@ -193,20 +189,16 @@
     ul.innerHTML = dossier.map((d, k) => {
       const i = INF.find(x => x.id === d.id);
       let ctrl = "";
-      if (i.lien === "ou") {
-        ctrl += `<div class="seg" role="radiogroup" aria-label="Peine retenue">
-          <button type="button" class="${d.choix === "amende" ? "is-on" : ""}" data-choix="amende" data-k="${k}">${fmtAmende(i.amende)}</button>
-          <button type="button" class="${d.choix === "prison" ? "is-on" : ""}" data-choix="prison" data-k="${k}">${fmtPrison(i.prison)}</button>
-        </div>`;
-      }
-      if (i.amende && typeof i.amende === "object") {
-        ctrl += `<label class="range-in">${i.amendeLabel || "Amende"} retenue (${i.amende.min ? nf(i.amende.min) + " – " : "0 – "}${nf(i.amende.max)})
-          <input type="number" min="${i.amende.min || 0}" max="${i.amende.max}" step="50" value="${d.amende}" data-amende="${k}"> septims</label>`;
-      }
-      if (i.prison && typeof i.prison === "object") {
-        ctrl += `<label class="range-in">Emprisonnement retenu (max ${i.prison.max} h)
-          <input type="number" min="0" max="${i.prison.max}" step="0.5" value="${d.prison}" data-prison="${k}"> h</label>`;
-      }
+      if (!i.deferre) {
+        ctrl += `<div class="seg" role="radiogroup" aria-label="Option choisie par le prévenu">${Object.entries(MODES).map(([m, lab]) =>
+          `<button type="button" class="${d.choix === m ? "is-on" : ""}" data-choix="${m}" data-k="${k}">${lab}</button>`).join("")}</div>`;
+        if (d.choix === "amende" && typeof i.amende === "object")
+          ctrl += `<label class="range-in">Montant retenu (${nf(i.amende.min)} – ${nf(i.amende.max)})
+            <input type="number" min="${i.amende.min}" max="${i.amende.max}" step="50" value="${d.amende}" data-amende="${k}"> septims</label>`;
+        if (d.choix !== "amende" && typeof i.heures === "object")
+          ctrl += `<label class="range-in">Durée retenue (${i.heures.min} – ${i.heures.max} h)
+            <input type="number" min="${i.heures.min}" max="${i.heures.max}" step="1" value="${d.heures}" data-heures="${k}"> h</label>`;
+      } else ctrl = `<p class="d-deferre">Pas de sanction directe : placement en rétention conservatoire et présentation au magistrat.</p>`;
       return `<li class="d-item">
         <div class="d-top">
           <span class="pill pill-${i.cat}">${catLabel(i.cat)}</span>
@@ -216,58 +208,53 @@
           </button>
         </div>
         <p class="d-sanction">${sanctionHTML(i)}</p>
-        ${ctrl ? `<div class="d-ctrl">${ctrl}</div>` : ""}
+        <div class="d-ctrl">${ctrl}</div>
       </li>`;
     }).join("");
     renderTotal();
   }
   function renderTotal() {
-    let amende = 0, prison = 0; const mesures = [], lines = [];
-    let execution = false;
+    let amende = 0, corvee = 0, prison = 0, deferres = 0; const mesures = [], lines = [];
     dossier.forEach(d => {
       const v = lineValues(d);
-      if (v.i.peineSpeciale) execution = true;
-      amende += v.amende; prison += v.prison;
-      (v.i.mesures || []).forEach(m => mesures.push(m));
+      amende += v.amende; corvee += v.corvee; prison += v.prison; if (v.deferre) deferres++;
+      (v.i.mesures || []).forEach(m => { if (!mesures.includes(m)) mesures.push(m); });
       lines.push(v);
     });
-    const delits = dossier.filter(d => INF.find(x => x.id === d.id).cat === "delit").length;
-    const crimes = dossier.length - delits;
+    const n = c => dossier.filter(d => INF.find(x => x.id === d.id).cat === c).length;
+    const nc = n("contravention"), nd = n("delit"), ncr = n("crime");
     $("#total-lines").innerHTML = !dossier.length ? `<p class="muted">Ajoutez des infractions pour calculer la sanction.</p>` : `
-      ${execution ? `<div class="tl tl-alert"><span>Peine</span><strong>Exécution immédiate</strong></div>` : ""}
-      <div class="tl"><span>Amende totale</span><strong>${nf(amende)} septims</strong></div>
+      ${deferres ? `<div class="tl tl-alert"><span>Procédure</span><strong>Rétention 24 h + déféré au magistrat</strong></div>` : ""}
+      <div class="tl"><span>Amende totale</span><strong>${amende ? nf(amende) + " septims" : "—"}</strong></div>
+      <div class="tl"><span>Corvée</span><strong>${corvee ? nf(corvee) + " h" : "—"}</strong></div>
       <div class="tl"><span>Emprisonnement</span><strong>${prison ? nf(prison) + " h" : "—"}</strong></div>
-      <div class="tl"><span>Qualification</span><strong>${delits} ${plural(delits, "délit", "délits")} · ${crimes} ${plural(crimes, "crime", "crimes")}</strong></div>
-      ${mesures.length ? `<div class="tl tl-col"><span>Mesures</span><ul>${mesures.map(m => `<li>${esc(m)}</li>`).join("")}</ul></div>` : ""}`;
+      <div class="tl"><span>Qualification</span><strong>${[nc && `${nc} ${plural(nc, "contravention", "contraventions")}`, nd && `${nd} ${plural(nd, "délit", "délits")}`, ncr && `${ncr} ${plural(ncr, "crime", "crimes")}`].filter(Boolean).join(" · ")}</strong></div>
+      ${mesures.length ? `<div class="tl tl-col"><span>Mesures</span><ul>${mesures.map(m => `<li>${esc(m)}</li>`).join("")}</ul></div>` : ""}
+      <p class="tl-hint">En cas de refus d'exécution, de contestation ou de rébellion : rétention conservatoire 24 h max.</p>`;
 
     const nom = $("#d-nom").value.trim(), lieu = $("#d-lieu").value.trim();
     const out = [];
     if (nom) out.push(`Contrevenant : ${nom}`);
     if (lieu) out.push(`Lieu : ${lieu}`);
+    const infLines = lines.map(v => `- [${catLabel(v.i.cat)}] ${v.i.nom} — ${retenuText(v)} (${v.i.base})`);
+    const sanc = [];
+    if (amende) sanc.push(`amende de ${nf(amende)} septims`);
+    if (corvee) sanc.push(`${nf(corvee)} h de corvée`);
+    if (prison) sanc.push(`${nf(prison)} h d'emprisonnement`);
+    if (deferres) sanc.push("rétention conservatoire (24 h max) et déféré au magistrat");
     if (dossier.length) {
       if (out.length) out.push("");
-      out.push("## Infractions relevées");
-      lines.forEach(({ i, amende: a, prison: p }) => {
-        const refs = i.refs.filter(r => ART[r]).slice(0, 1).map(refLabel).join("");
-        let retenu = i.peineSpeciale ? i.peineSpeciale : [a ? `${nf(a)} septims` : "", p ? `${nf(p)} h d'emprisonnement` : ""].filter(Boolean).join(" + ");
-        out.push(`- [${catLabel(i.cat)}] ${i.nom} — ${retenu || "sanction à fixer"}${refs ? ` (${refs})` : ""}`);
-      });
-      out.push("");
-      out.push("## Sanction");
-      if (execution) out.push("Peine : exécution immédiate");
-      out.push(`Amende totale : ${nf(amende)} septims`);
+      out.push("## Infractions relevées", ...infLines, "", "## Sanction");
+      if (amende) out.push(`Amende totale : ${nf(amende)} septims`);
+      if (corvee) out.push(`Corvée : ${nf(corvee)} h`);
       if (prison) out.push(`Emprisonnement : ${nf(prison)} h`);
+      if (deferres) out.push("Procédure : rétention conservatoire (24 h max) et déféré au magistrat");
       if (mesures.length) out.push(`Mesures : ${mesures.join(" ; ")}`);
     }
     $("#recap").textContent = out.join("\n") || "Le récapitulatif apparaîtra ici.";
     const m = [];
     if (dossier.length) {
-      m.push("Infractions relevées :");
-      out.slice(out.indexOf("## Infractions relevées") + 1, out.indexOf("## Sanction") - 1).forEach(l => m.push(l));
-      const sanc = [];
-      if (execution) sanc.push("exécution immédiate");
-      if (amende) sanc.push(`amende de ${nf(amende)} septims`);
-      if (prison) sanc.push(`${nf(prison)} h d'emprisonnement`);
+      m.push("Infractions relevées :", ...infLines);
       m.push(`Sanction appliquée : ${sanc.join(" + ") || "à fixer"}`);
       if (mesures.length) m.push(`Mesures complémentaires : ${mesures.join(" ; ")}`);
     }
@@ -282,7 +269,7 @@
     const t = e.target;
     const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, isNaN(v) ? lo : v));
     if (t.dataset.amende != null) dossier[+t.dataset.amende].amende = clamp(parseFloat(t.value), +t.min, +t.max);
-    if (t.dataset.prison != null) dossier[+t.dataset.prison].prison = clamp(parseFloat(t.value), +t.min, +t.max);
+    if (t.dataset.heures != null) dossier[+t.dataset.heures].heures = clamp(parseFloat(t.value), +t.min, +t.max);
     renderTotal();
   });
   ["#d-nom", "#d-lieu"].forEach(s => $(s).addEventListener("input", renderTotal));
@@ -301,8 +288,12 @@
 
   /* ---------- Recueil ---------- */
   function renderToc() {
-    $("#toc").innerHTML = `<p class="toc-label">Sommaire</p><ol>` + LAWS.map(l =>
-      `<li><a href="#/recueil/${l.id}" data-law="${l.id}">${esc(l.titre)}</a></li>`).join("") + `</ol>`;
+    const group = doc => LAWS.filter(l => l.doc === doc).map(l => {
+      const subs = l.sections.map((s, k) => s.titre && l.doc === "codex" ? `<li><a class="toc-sub" href="#/recueil/${l.id}-s${k}" data-law="${l.id}">${esc(s.titre.replace(/^Titre ([IVX]+) — /, "$1. "))}</a></li>` : "").join("");
+      return `<li><a href="#/recueil/${l.id}" data-law="${l.id}">${esc(l.titre)}</a>${subs ? `<ol class="toc-subs">${subs}</ol>` : ""}</li>`;
+    }).join("");
+    $("#toc").innerHTML = `<p class="toc-label">Grand Codex d'Estemarche</p><ol>${group("codex")}</ol>
+      <p class="toc-label">Fiche de poche du garde</p><ol>${group("fiche")}</ol>`;
   }
   function hl(text, tokens) {
     let h = esc(text);
@@ -321,8 +312,9 @@
     const q = $("#q-lois").value;
     const tokens = norm(q).split(/\s+/).filter(t => t.length > 1);
     let count = 0;
+    let lastDoc = null;
     const html = LAWS.map(law => {
-      const secs = law.sections.map(sec => {
+      const secs = law.sections.map((sec, k) => {
         const arts = sec.articles.filter(a => {
           if (!tokens.length) return true;
           const hay = norm(law.titre + " " + (sec.titre || "") + " " + a.titre + " " + artText(a));
@@ -330,15 +322,18 @@
         });
         count += arts.length;
         if (!arts.length) return "";
-        return `${sec.titre ? `<h3 class="sec-title">${esc(sec.titre)}</h3>` : ""}` + arts.map(a => {
+        let chap = null;
+        return `${sec.titre ? `<h3 class="sec-title" id="sec-${law.id}-s${k}">${esc(sec.titre)}</h3>` : ""}` + arts.map(a => {
+          const chapHTML = a.chap && a.chap !== chap ? `<h4 class="chap-title">${esc(a.chap)}</h4>` : "";
+          chap = a.chap || chap;
           const linked = INF_BY_ART[a.id] || [];
           let body = "", inList = false;
           a.paras.forEach(p => {
             if (typeof p === "string") { if (inList) { body += "</ul>"; inList = false; } body += `<p>${hl(p, tokens)}</p>`; }
-            else { if (!inList) { body += "<ul>"; inList = true; } body += `<li>${hl(p.li, tokens)}</li>`; }
+            else { if (!inList) { body += /^\d+\.\s/.test(p.li) ? `<ul class="numbered">` : "<ul>"; inList = true; } body += `<li>${hl(p.li, tokens)}</li>`; }
           });
           if (inList) body += "</ul>";
-          return `<article class="art" id="art-${a.id}">
+          return chapHTML + `<article class="art" id="art-${a.id}">
             <header><span class="art-num">${esc(a.num)}</span><h4>${hl(a.titre, tokens)}</h4></header>
             ${body}
             ${linked.length ? `<div class="linked"><span>Infractions liées</span>${linked.map(i =>
@@ -347,77 +342,14 @@
         }).join("");
       }).join("");
       if (!secs) return "";
-      return `<section class="law" id="law-${law.id}"><header class="law-head"><h2>${esc(law.titre)}</h2><p>${esc(law.resume)}</p></header>${secs}</section>`;
+      const docHead = law.doc !== lastDoc ? `<p class="doc-label">${law.doc === "fiche" ? "Fiche de poche du garde d'Estemarche" : "Grand Codex d'Estemarche"}</p>` : "";
+      lastDoc = law.doc;
+      return docHead + `<section class="law" id="law-${law.id}"><header class="law-head"><h2>${esc(law.titre)}</h2><p>${esc(law.resume)}</p></header>${secs}</section>`;
     }).join("");
     $("#lois").innerHTML = html || `<div class="empty"><p><strong>Aucun article ne contient ces termes.</strong></p><p>Vérifiez l'orthographe ou essayez un synonyme.</p></div>`;
     $("#lois-count").textContent = tokens.length ? `${count} ${plural(count, "article trouvé", "articles trouvés")}` : "";
   }
   $("#q-lois").addEventListener("input", renderLois);
-
-  /* ---------- Casque ---------- */
-  const casqueForm = $("#casque-form");
-  function renderCasque() {
-    const f = Object.fromEntries(new FormData(casqueForm));
-    const { lieu, piece, qui, fois, refus, urgence } = f;
-    $("#fs-urgence").hidden = lieu !== "hors";
-    $("#fs-fois").hidden = lieu !== "ville";
-    const sensible = ["thalmor", "legion", "garde-ext"].includes(qui);
-    let tone = "ok", titre = "", texte = "", sanction = "", add = null, refs = [];
-
-    if (lieu === "hors") {
-      refs = ["casque-estemarche"];
-      if (refus === "oui") {
-        if (sensible) { tone = "warn"; titre = "Ne rien tenter"; texte = "Refus d'une personne du Thalmor, de la Légion impériale ou d'une autre châtellerie : n'intervenez pas et rédigez un rapport."; }
-        else { tone = "bad"; titre = "Refus d'obtempérer"; texte = "Refuser d'enlever son masque lors d'un contrôle est un refus d'obtempérer."; sanction = "500 septims ou 2 h d'emprisonnement"; add = "obtemperer"; }
-      } else if (urgence === "oui") {
-        tone = "warn"; titre = "Autorisation restreinte possible"; texte = "Hors des murs, le port est normalement autorisé, mais cette autorisation peut être restreinte en cas d'état d'urgence. Appliquez les consignes en vigueur.";
-      } else { titre = "Autorisé"; texte = "Le port du casque et du masque est autorisé hors des murs de Vendeaume. Le port peut néanmoins être exigé retiré lors d'un contrôle."; }
-    }
-    else if (lieu === "palais") {
-      refs = ["casque-palais", "palais-iii", "palais-vi"];
-      if (qui === "jarl" || qui === "cour") { titre = "Autorisé (exception)"; texte = "Au Palais, seules les exceptions accordées par le Jarl ou sa Cour sont valables. Vérifiez que l'exception a bien été attribuée."; }
-      else if (refus === "oui") {
-        if (sensible) { tone = "warn"; titre = "Ne rien tenter"; texte = "Personne du Thalmor, de la Légion ou d'une autre châtellerie : n'intervenez pas et rédigez un rapport."; }
-        else { tone = "bad"; titre = "Refus d'obtempérer"; texte = "Les injonctions de la Garde du Palais doivent être immédiatement exécutées (Code du Palais, art. VI)."; sanction = "500 septims ou 2 h d'emprisonnement"; add = "obtemperer"; }
-      } else { tone = "warn"; titre = "Interdit — faire retirer"; texte = "Application stricte du Code du Palais : tout casque, heaume, capuchon ou masque empêchant l'identification est interdit. Aucune des exceptions de la ville ne s'applique au Palais."; }
-    }
-    else { // ville
-      refs = ["casque-vendeaume"];
-      const exempt = ["cour", "pretre", "mage", "hullen", "penitus", "jarl", "legion"].includes(qui) ||
-        (["thalmor", "garde-ext"].includes(qui) && piece === "casque");
-      if (exempt) {
-        titre = "Autorisé (exception)";
-        const why = { cour: "Membre de la Cour de Vendeaume", pretre: "Prêtre", mage: "Mage", hullen: "Hullen Tong / Compagnie Orientale", penitus: "Penitus Oculatus", jarl: "Personne autorisée par le Jarl", legion: "Légion impériale en tenue", thalmor: "Thalmor — casque uniquement", "garde-ext": "Garde d'une autre châtellerie — casque uniquement" }[qui];
-        texte = `Exception prévue : ${why}.`;
-      } else if (sensible && (refus === "oui" || fois !== "1")) {
-        tone = "warn"; titre = "Ne rien tenter"; texte = qui === "thalmor" || qui === "garde-ext"
-          ? "Le casque est toléré mais pas la capuche ni le masque. En cas de refus, n'intervenez pas et rédigez un rapport."
-          : "En cas de refus, n'intervenez pas et rédigez un rapport.";
-      } else if (refus === "oui" || fois === "3") {
-        tone = "bad"; titre = "Refus d'obtempérer"; texte = fois === "3" ? "Troisième interpellation de la même personne pour le port du casque ou du masque." : "Refus de retirer sa pièce lors d'un contrôle.";
-        sanction = "500 septims ou 2 h d'emprisonnement"; add = "obtemperer";
-      } else if (fois === "2") {
-        tone = "bad"; titre = "Amende"; texte = "La personne a déjà reçu un avertissement : appliquez l'amende."; sanction = "30 septims"; add = "capuche";
-      } else {
-        tone = "warn"; titre = "Avertissement"; texte = "Première interpellation : donnez un avertissement et demandez de retirer la pièce. Aucune amende à ce stade.";
-        if (qui === "thalmor" || qui === "garde-ext") texte = "Le casque est toléré, mais pas la capuche ni le masque. " + texte;
-        if (qui === "legion-civil") texte = "L'exception de la Légion ne vaut qu'en tenue de légion. " + texte;
-      }
-    }
-    $("#verdict").className = `verdict v-${tone}`;
-    $("#verdict").innerHTML = `
-      <p class="v-label">Conduite à tenir</p>
-      <h2>${esc(titre)}</h2>
-      <p>${esc(texte)}</p>
-      ${sanction ? `<div class="v-sanction"><span>Sanction</span><strong>${esc(sanction)}</strong></div>` : ""}
-      ${add ? `<button type="button" class="btn btn-primary" data-add-casque="${add}">${dossier.some(d => d.id === add) ? "Déjà dans le dossier" : "Ajouter au dossier"}</button>` : ""}
-      <div class="v-refs">${refs.map(r => `<a href="#/recueil/${r}">${esc(refLabel(r))}</a>`).join("")}</div>`;
-  }
-  casqueForm.addEventListener("change", renderCasque);
-  $("#verdict").addEventListener("click", e => {
-    const b = e.target.closest("[data-add-casque]");
-    if (b && !dossier.some(d => d.id === b.dataset.addCasque)) { toggleDossier(b.dataset.addCasque); renderCasque(); }
-  });
 
   /* ---------- Rapport (modèle du générateur PowerShell) ---------- */
   const rForm = $("#rapport-form");
@@ -472,10 +404,124 @@
   });
   renderReport();
 
+  /* ---------- Mur des croquis (dossier « Mur des croquis » du site) ----------
+     Hébergé sur GitHub Pages : le contenu du dossier est lu en direct via l'API publique GitHub,
+     donc toute image envoyée dans le dépôt apparaît sans script ni index à maintenir.
+     Ailleurs (serveur local) : lecture de la liste du dossier si le serveur l'expose. */
+  const CQ_NAME = "Mur des croquis";
+  const CQ_DIR = CQ_NAME + "/";
+  const IMG_RE = /\.(png|jpe?g|gif|webp|bmp|svg|avif)$/i;
+  const cqTitle = n => n.split("/").pop().replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim();
+  const cqSort = (x, y) => x.group.localeCompare(y.group, "fr") || x.name.localeCompare(y.name, "fr", { numeric: true });
+  let cqItems = [];
+  let cqState = "loading"; // loading | ok | error
+  let cqError = "";
+  // Dépôt GitHub : réglage manuel possible (domaine personnalisé), sinon déduit de l'adresse xxx.github.io/depot/
+  function cqRepo() {
+    const cfg = window.CODEX_GITHUB || {};
+    if (cfg.owner && cfg.repo) return cfg;
+    const m = location.hostname.match(/^([a-z0-9-]+)\.github\.io$/i);
+    if (!m) return null;
+    const seg = location.pathname.split("/").filter(Boolean)[0];
+    const repo = seg && !/\.html?$/i.test(seg) ? seg : `${m[1]}.github.io`;
+    return { owner: m[1], repo, branch: cfg.branch };
+  }
+  async function cqFromGitHub(gh) {
+    const api = `https://api.github.com/repos/${gh.owner}/${gh.repo}`;
+    const get = async u => { const r = await fetch(u, { headers: { Accept: "application/vnd.github+json" }, cache: "no-store" });
+      if (!r.ok) throw new Error(r.status === 403 ? "limite de consultation GitHub atteinte, réessayez dans quelques minutes" : `GitHub a répondu ${r.status}`);
+      return r.json(); };
+    const branch = gh.branch || (await get(api)).default_branch;
+    const tree = await get(`${api}/git/trees/${encodeURIComponent(branch)}?recursive=1`);
+    const re = new RegExp(`(^|/)${CQ_NAME}/(.+)$`, "i");
+    const hits = (tree.tree || []).filter(t => t.type === "blob" && IMG_RE.test(t.path) && re.test(t.path));
+    // S'il existe plusieurs dossiers « Mur des croquis », on garde le moins profond (celui du site)
+    const depth = t => t.path.toLowerCase().indexOf(CQ_NAME.toLowerCase() + "/");
+    const best = Math.min(...hits.map(depth));
+    return hits.filter(t => depth(t) === best).map(t => {
+      const rel = t.path.match(re)[2], parts = rel.split("/"), name = parts.pop();
+      return { name, group: parts.join(" / "),
+        url: `https://raw.githubusercontent.com/${gh.owner}/${gh.repo}/${encodeURIComponent(branch)}/${t.path.split("/").map(encodeURIComponent).join("/")}` };
+    });
+  }
+  async function cqFromListing(path, group, depth) {
+    if (depth > 3) return [];
+    let html;
+    try { const r = await fetch(encodeURI(CQ_DIR + path), { cache: "no-store" }); if (!r.ok) return []; html = await r.text(); }
+    catch (err) { return []; }
+    const doc = new DOMParser().parseFromString(html, "text/html"), out = [];
+    for (const a of doc.querySelectorAll("a[href]")) {
+      const href = a.getAttribute("href");
+      if (!href || /^(\.\.|\/|\?|#|[a-z]+:)/i.test(href)) continue;
+      const nm = decodeURIComponent(href);
+      if (nm.endsWith("/")) out.push(...await cqFromListing(path + nm, (group ? group + " / " : "") + nm.slice(0, -1), depth + 1));
+      else if (IMG_RE.test(nm)) out.push({ name: nm, group, url: encodeURI(CQ_DIR + path + nm) });
+    }
+    return out;
+  }
+  async function cqLoad() {
+    cqState = "loading"; renderCroquis();
+    try {
+      const gh = cqRepo();
+      cqItems = (gh ? await cqFromGitHub(gh) : await cqFromListing("", "", 0)).sort(cqSort);
+      cqState = "ok";
+    } catch (err) { cqItems = []; cqState = "error"; cqError = err.message || "lecture impossible"; }
+    renderCroquis();
+  }
+  function renderCroquis() {
+    const all = cqItems;
+    $("#cq-help").hidden = all.length > 0 || cqState === "loading";
+    $("#cq-toolbar").hidden = !all.length;
+    const nG = new Set(all.map(c => c.group).filter(Boolean)).size;
+    $("#cq-source-status").textContent = cqState === "loading" ? "Lecture du dossier…"
+      : cqState === "error" ? `Dossier illisible : ${cqError}.`
+      : all.length ? `${all.length} croquis${nG ? ` répartis en ${nG + (all.some(c => !c.group) ? 1 : 0)} rubriques` : ""}.`
+      : "Aucune image dans le dossier pour l'instant.";
+    $("#cq-refresh").disabled = cqState === "loading";
+    const q = norm($("#cq-q").value || "");
+    const shown = all.map((c, k) => ({ ...c, k })).filter(c => !q || norm(cqTitle(c.name) + " " + c.group).includes(q));
+    $("#cq-count").textContent = `${shown.length} croquis affiché${shown.length > 1 ? "s" : ""}`;
+    const groups = new Map();
+    shown.forEach(c => { if (!groups.has(c.group)) groups.set(c.group, []); groups.get(c.group).push(c); });
+    $("#cq-groups").innerHTML = [...groups].map(([g, list]) => `
+      ${groups.size > 1 || g ? `<h2 class="cq-h2">${esc(g || "Divers")} <span class="g-sub">(${list.length})</span></h2>` : ""}
+      <ul class="cq-grid">${list.map(c => `<li><button type="button" class="cq-card" data-cq="${c.k}">
+        <img src="${c.url}" alt="${esc(cqTitle(c.name))}" loading="lazy"><span>${esc(cqTitle(c.name))}</span></button></li>`).join("")}</ul>`).join("")
+      || (all.length ? `<p class="g-sub">Aucun croquis ne correspond au filtre.</p>` : "");
+  }
+  $("#cq-q").addEventListener("input", renderCroquis);
+  $("#cq-refresh").addEventListener("click", cqLoad);
+  cqLoad();
+  const lb = $("#lightbox");
+  let lbIdx = -1;
+  const lbList = () => cqItems;
+  function lbShow(k) {
+    const list = lbList(); if (!list.length) return;
+    lbIdx = (k + list.length) % list.length; const c = list[lbIdx];
+    $("#lb-img").src = c.url; $("#lb-img").alt = cqTitle(c.name);
+    $("#lb-cap").textContent = (c.group ? c.group + " — " : "") + cqTitle(c.name) + `  (${lbIdx + 1}/${list.length})`;
+    lb.hidden = false;
+  }
+  $("#cq-groups").addEventListener("click", e => {
+    const b = e.target.closest("[data-cq]"); if (!b) return;
+    lbShow(+b.dataset.cq); $("#lb-close").focus();
+  });
+  const closeLb = () => { lb.hidden = true; };
+  $("#lb-close").addEventListener("click", closeLb);
+  $("#lb-prev").addEventListener("click", e => { e.stopPropagation(); lbShow(lbIdx - 1); });
+  $("#lb-next").addEventListener("click", e => { e.stopPropagation(); lbShow(lbIdx + 1); });
+  lb.addEventListener("click", e => { if (e.target === lb) closeLb(); });
+  document.addEventListener("keydown", e => {
+    if (lb.hidden) return;
+    if (e.key === "Escape") closeLb();
+    else if (e.key === "ArrowLeft") lbShow(lbIdx - 1);
+    else if (e.key === "ArrowRight") lbShow(lbIdx + 1);
+  });
+
   /* ---------- Routing ---------- */
   function route() {
     const [, view = "bareme", target] = (location.hash || "#/bareme").split("/");
-    const v = ["bareme", "rapport", "dossier", "recueil", "casque"].includes(view) ? view : "bareme";
+    const v = ["bareme", "rapport", "dossier", "recueil", "croquis"].includes(view) ? view : "bareme";
     $$(".view").forEach(el => el.hidden = el.id !== "view-" + v);
     $$(".tabs a").forEach(a => a.classList.toggle("is-on", a.dataset.tab === v));
     if (v === "bareme") {
@@ -487,11 +533,11 @@
       } else renderBareme();
     }
     if (v === "dossier") renderDossier();
-    if (v === "casque") renderCasque();
+    if (v === "croquis") renderCroquis();
     if (v === "recueil") {
       if (target && $("#q-lois").value) { $("#q-lois").value = ""; renderLois(); }
-      const el = target && ($("#art-" + target) || $("#law-" + target));
-      $$("#toc a").forEach(a => a.classList.toggle("is-on", !!target && (a.dataset.law === target || (ART[target] && ART[target].law.id === a.dataset.law))));
+      const el = target && ($("#art-" + target) || $("#sec-" + target) || $("#law-" + target));
+      $$("#toc a").forEach(a => a.classList.toggle("is-on", !!target && !a.classList.contains("toc-sub") && (target.startsWith(a.dataset.law) || (ART[target] && ART[target].law.id === a.dataset.law))));
       if (el) {
         setTimeout(() => { el.scrollIntoView({ block: "start" }); el.classList.add("flash"); setTimeout(() => el.classList.remove("flash"), 1600); }, 80);
       } else window.scrollTo(0, 0);

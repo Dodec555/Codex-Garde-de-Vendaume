@@ -1,248 +1,181 @@
 /*
   Barème des infractions — Garde de Vendeaume
-  amende : nombre ou {min, max} en septims (null si aucune)
-  prison : nombre d'heures, ou {max} pour « jusqu'à »
-  lien   : "ou" (au choix), "et" (cumulatif), null (une seule peine)
-  source : "bareme" = figure au barème officiel ; "texte" = déduit des articles de loi
+  D'après le Grand Codex d'Estemarche et la Fiche de poche du garde (Répertoire unifié des infractions).
+  cat     : "contravention" | "delit" | "crime"
+  amende  : nombre ou {min, max} en septims (null si aucune)
+  heures  : nombre ou {min, max} — durée de corvée OU d'emprisonnement en cellule de garde (durées identiques)
+  deferre : true si la procédure est la rétention conservatoire (24 h max) et le déféré au magistrat
+  mesures : mesures complémentaires (saisie, expulsion, restitution…)
+  base    : fondement légal tel qu'indiqué dans la fiche de poche
+  refs    : identifiants des articles du recueil
 */
 window.DOMAINES = {
-  palais:    "Palais des Rois",
-  magie:     "Magie",
-  commerce:  "Commerce & marché",
-  ordre:     "Ordre public",
-  ressources:"Chasse, minage & récolte",
-  militaire: "Forces armées",
-  patrimoine:"Patrimoine",
-  armes:     "Équipements réglementés",
-  tenue:     "Tenue & identification"
+  palais:     "Palais des Rois & institutions",
+  ordre:      "Ordre public",
+  identite:   "Usurpation & obéissance",
+  personnes:  "Atteintes aux personnes & aux biens",
+  magie:      "Magie & cultes",
+  commerce:   "Commerce & équipements",
+  ressources: "Mine, chasse & patrimoine",
+  etat:       "Sûreté de la Châtellerie"
 };
 
 window.INFRACTIONS = [
-  /* ---------- DÉLITS (barème) ---------- */
-  {
-    id: "gemme", cat: "delit", dom: "magie", source: "bareme",
-    nom: "Vente d'une gemme spirituelle remplie au-dessus de 50 septims",
-    amende: 500, prison: null, lien: null,
-    mesures: ["Confiscation possible des gemmes (selon les autorités)"],
-    refs: ["magie-iii"],
-    notes: ["Prix réglementé : 50 septims l'unité sur tout le territoire.", "Cette infraction figure à la fois dans le barème des délits et dans celui des crimes : classement à clarifier auprès de la Cour."],
-    keys: "gemme ame soul gem prix speculation marchand enchantement"
-  },
-  {
-    id: "cor", cat: "delit", dom: "militaire", source: "bareme",
+  /* ---------- A. CONTRAVENTIONS ---------- */
+  { id: "cor", cat: "contravention", dom: "ordre",
     nom: "Usage non autorisé du Cor de guerre",
-    amende: 200, prison: 1, lien: "ou",
-    qualif: "Atteinte à la paix de la Châtellerie (art. 3 du Corpus Juriscivilis Imperialis)",
-    refs: ["forces-ii"],
-    notes: ["Réservé aux forces armées de la Châtellerie et aux personnes autorisées par la Cour."],
-    keys: "cor corne trompe alerte alarme souffler"
-  },
-  {
-    id: "etal", cat: "delit", dom: "commerce", source: "bareme",
-    nom: "Occupation d'un étal sans citoyenneté ou sans autorisation",
-    amende: 500, prison: null, lien: null,
-    mesures: ["Retrait de l'étal"],
-    refs: ["marches-i", "marches-ii", "marches-comp7"],
-    notes: ["Les étals du marché de Vendeaume appartiennent à la Châtellerie et sont réservés aux citoyens.", "Location : 25 septims (citoyen non commerçant) / 20 septims (commerçant reconnu)."],
-    keys: "etal etale stand marche location non citoyen"
-  },
-  {
-    id: "commerce", cat: "delit", dom: "commerce", source: "bareme",
-    nom: "Exercice d'une activité commerciale sans autorisation",
-    amende: 500, prison: 2, lien: "ou",
-    qualif: "Corpus Juriscivilis Imperialis",
-    refs: ["marches-ii", "palais-iii"],
-    notes: ["Toute activité commerciale sur le marché requiert l'autorisation de la Cour d'Estemarche.", "Au Palais : racolage et vente non autorisée par le Jarl ou sa Cour interdits."],
-    keys: "vente commerce vendre racolage sollicitation colporteur sans licence"
-  },
-  {
-    id: "illicite", cat: "delit", dom: "commerce", source: "bareme",
-    nom: "Vente de marchandises illicites, volées ou prohibées",
-    amende: 500, prison: 2, lien: "et",
-    qualif: "Corpus Juriscivilis Imperialis",
-    mesures: ["Saisie des marchandises et preuves (Loi des marchés, art. IV)"],
-    refs: ["marches-iii", "marches-iv"],
-    notes: ["S'applique aussi aux marchandises contrefaites ou obtenues par des moyens illicites."],
-    keys: "recel vol vole contrefacon contrebande skooma drogue prohibe illegal"
-  },
-  {
-    id: "exterieur", cat: "delit", dom: "commerce", source: "bareme",
-    nom: "Commerce d'un marchand extérieur hors du Jour du Marché",
-    amende: 300, prison: 1, lien: "et",
-    refs: ["marches-v"],
-    notes: ["Sauf autorisation exceptionnelle accordée par la Cour."],
-    keys: "marchand etranger exterieur jour du marche caravane"
-  },
-  {
-    id: "trouble", cat: "delit", dom: "ordre", source: "bareme",
-    nom: "Trouble à l'ordre public (vol, intrusion)",
-    amende: 300, prison: 2, lien: "ou",
-    refs: ["marches-vi"],
-    notes: ["Au marché, peut aussi entraîner la fermeture de l'étal et le retrait de l'autorisation de commerce."],
-    keys: "vol voler intrusion effraction bagarre tapage trouble desordre"
-  },
-  {
-    id: "respect-palais", cat: "delit", dom: "palais", source: "bareme",
-    nom: "Manque de respect au Palais des Rois",
-    amende: 500, prison: 2, lien: "ou",
-    refs: ["palais-vii", "palais-iii"],
-    notes: ["Si le comportement trouble l'ordre ou le fonctionnement des institutions, il peut être requalifié en atteinte à la paix de l'Empereur (Corpus Juriscivilis Imperialis).", "Couvre aussi : insultes, menaces, altercations, perturbation des audiences, course dans le Palais."],
-    keys: "insulte irrespect outrage provocation menace altercation courir audience jarl cour"
-  },
-  {
-    id: "arme-palais", cat: "delit", dom: "palais", source: "bareme",
-    nom: "Port d'arme au Palais des Rois",
-    amende: 500, prison: 2, lien: "ou",
-    mesures: ["Confiscation des armes"],
-    refs: ["palais-iii", "palais-vi"],
-    notes: ["Vise le port ostentatoire d'armes dégainées."],
-    keys: "arme degainee epee hache arc palais"
-  },
-  {
-    id: "obtemperer", cat: "delit", dom: "ordre", source: "bareme",
-    nom: "Refus d'obtempérer aux ordres",
-    amende: 500, prison: 2, lien: "ou",
-    qualif: "Corpus Juriscivilis Imperialis",
-    refs: ["palais-vi", "casque-estemarche", "casque-vendeaume"],
-    notes: ["Inclut le refus de retirer son masque lors d'un contrôle, et la 3ᵉ interpellation pour port du casque/masque en ville.", "Thalmor, Légion impériale ou gardes d'autres châtelleries : ne rien tenter, faire un rapport."],
-    keys: "refus obeir ordre injonction controle fouille resistance fuite"
-  },
-  {
-    id: "ressources", cat: "delit", dom: "ressources", source: "bareme",
-    nom: "Chasse, minage ou récolte en Estemarche sans citoyenneté ou autorisation",
-    amende: 400, prison: 1, lien: "ou",
-    refs: ["code-civil-dc-ii", "code-civil-dc-iii", "code-civil-dc-v"],
-    notes: ["Le sel ne peut être extrait qu'avec l'accord du propriétaire de la mine concernée."],
-    keys: "chasse braconnage minage mine minerai sel recolte cueillette non citoyen"
-  },
-  {
-    id: "capuche", cat: "delit", dom: "tenue", source: "bareme",
-    nom: "Port de la capuche, du casque ou du masque en ville",
-    amende: 30, prison: null, lien: null,
-    refs: ["casque-vendeaume", "casque-palais", "palais-iii"],
-    notes: ["Toujours donner un avertissement avant l'amende.", "3ᵉ interpellation de la même personne = refus d'obtempérer.", "Exceptions (barème) : mages, prêtres, Compagnie Orientale. Voir l'onglet Casque & masque pour la liste complète."],
-    keys: "capuche capuchon casque heaume masque visage cagoule identification"
-  },
-  {
-    id: "forge", cat: "delit", dom: "commerce", source: "bareme",
-    nom: "Utilisation illégale d'une forge sauvage",
-    amende: 500, prison: 2, lien: "ou",
-    refs: ["marches-vii"],
-    notes: ["Forges reconnues : forge du marché, forge proche du Quartier Gris, forge du Camp Impérial d'Estemarche.", "L'article de loi ne mentionne que l'amende de 500 septims ; le barème ajoute l'alternative de 2 heures."],
-    keys: "forge enclume sauvage forgeron"
-  },
-  {
-    id: "statues", cat: "delit", dom: "patrimoine", source: "bareme",
-    nom: "Manque de respect des statues d'Ysgramor et nordiques",
-    amende: 400, prison: 2, lien: "ou",
-    refs: ["nordique-i", "nordique-iv"],
-    keys: "statue ysgramor monument irrespect degradation"
-  },
-  {
-    id: "travail", cat: "delit", dom: "commerce", source: "bareme",
-    nom: "Travail d'un non-citoyen dans un commerce de Vendeaume",
-    amende: 300, prison: 1, lien: "ou",
-    refs: [],
-    notes: ["Infraction prévue uniquement par le barème (pas d'article détaillé dans le recueil)."],
-    keys: "travail emploi employe non citoyen boutique"
-  },
+    amende: 200, heures: 1, base: "Codex, Art. III.2 ; CJI, Art. 3", refs: ["codex-iii-2"],
+    notes: ["Réservé aux forces armées de la Châtellerie et aux personnes munies d'une autorisation expresse de la Cour."],
+    keys: "cor corne trompe alerte alarme souffler guerre" },
+  { id: "usurpation-simple", cat: "contravention", dom: "identite",
+    nom: "Usurpation d'identité simple",
+    amende: 250, heures: 1, base: "Codex, Art. VI.1 ; CJI, Art. 1", refs: ["codex-vi-1"],
+    keys: "usurpation identite faux nom mensonge se faire passer" },
+  { id: "obtemperer", cat: "contravention", dom: "identite",
+    nom: "Refus d'obtempérer simple",
+    amende: 250, heures: 1, base: "Codex, Art. VI.1 ; CJI, Art. 2", refs: ["codex-vi-1", "codex-ii-6"],
+    notes: ["Avec violences, magie ou potions : voir « Refus d'obtempérer aggravé » (délit)."],
+    keys: "refus obtemperer desobeir ordre injonction controle fuite resister" },
+  { id: "palais-conduite", cat: "contravention", dom: "palais",
+    nom: "Visage dissimulé, racolage ou turbulences au Palais des Rois",
+    amende: { min: 250, max: 500 }, heures: { min: 1, max: 2 }, base: "Codex, Art. II.3 ; CJI, Art. 3",
+    mesures: ["Expulsion immédiate du Palais"], refs: ["codex-ii-3"],
+    notes: ["Au Palais uniquement : casque, heaume, capuchon ou masque dissimulant le visage restent interdits (sauf forces de sécurité régulières en service).", "Couvre aussi : arme dégainée, racolage ou vente non autorisée, course, altercations, perturbation des audiences."],
+    keys: "palais casque capuche masque heaume visage dissimule racolage vente courir arme degainee turbulence audience" },
+  { id: "outrage", cat: "contravention", dom: "palais",
+    nom: "Outrage aux institutions / propos irrespectueux envers la Cour",
+    amende: 500, heures: 2, base: "Codex, Art. II.7 ; CJI, Art. 3", refs: ["codex-ii-7"],
+    notes: ["En cas de refus ou d'outrage à un représentant impérial : rétention conservatoire 24 h (poursuites selon les Art. 6 et 8 du CPI)."],
+    keys: "outrage insulte irrespect jarl cour institution provocation insolence" },
+  { id: "paix-publique", cat: "contravention", dom: "ordre",
+    nom: "Atteinte à la paix publique et à la tranquillité",
+    amende: { min: 200, max: 500 }, heures: { min: 1, max: 2 }, base: "Codex, Art. VI.1 ; CJI, Art. 3", refs: ["codex-vi-1"],
+    keys: "tapage bruit trouble ivresse bagarre verbale tranquillite paix publique" },
+  { id: "intrusion-privee", cat: "contravention", dom: "personnes",
+    nom: "Intrusion dans une propriété privée",
+    amende: { min: 250, max: 500 }, heures: { min: 1, max: 2 }, base: "Codex, Art. VI.1 ; CJI, Art. 4", refs: ["codex-vi-1"],
+    keys: "intrusion maison domicile entrer propriete privee effraction" },
+  { id: "gemme-blanche", cat: "contravention", dom: "commerce",
+    nom: "Vente d'une gemme spirituelle blanche remplie au-dessus du tarif (> 50 septims)",
+    amende: 500, heures: 2, base: "Codex, Art. V.3", mesures: ["Saisie de la marchandise"], refs: ["codex-v-3"],
+    notes: ["Prix maximal : 50 septims l'unité sur tout le territoire. Ne concerne pas les gemmes noires (délit)."],
+    keys: "gemme ame soul gem blanche prix tarif speculation marchand" },
+  { id: "intrusion-mine", cat: "contravention", dom: "ressources",
+    nom: "Intrusion simple à la mine de Brûlevapeur",
+    amende: 500, heures: 2, base: "Codex, Art. VIII.3 ; CJI, Art. 4", refs: ["codex-viii-3", "codex-viii-2"],
+    notes: ["Propriété privée de la famille Longue-Braise. En cas de pillage de malachite : voir le délit correspondant."],
+    keys: "mine brulevapeur longue braise intrusion entrer" },
 
-  /* ---------- DÉLITS (déduits des décrets) ---------- */
-  {
-    id: "patrimoine", cat: "delit", dom: "patrimoine", source: "texte",
-    nom: "Atteinte au patrimoine nordique (fouille non autorisée, pillage, dégradation, non-déclaration d'une découverte)",
-    amende: { min: 500, max: 2500 }, prison: { max: 5 }, lien: "et",
-    qualif: "Profanation (art. 10 du Corpus Juriscivilis Imperialis)",
-    refs: ["nordique-ii", "nordique-iii", "nordique-iv", "nordique-xi", "nordique-xii"],
-    notes: ["Montant et durée fixés par l'autorité judiciaire selon la gravité, les circonstances et les dommages.", "Sites protégés : Tertre d'Ygnol, Ansilvund, Tombeau d'Hillgrund, Sanctuaire du Primarbor, Crête de l'ossuaire, et toute la cité de Vendeaume."],
-    keys: "fouille pillage tombe crypte ruine relique artefact profanation archeologie decouverte souterrain"
-  },
-  {
-    id: "geant", cat: "delit", dom: "patrimoine", source: "texte",
-    nom: "Chasse, capture ou mise à mort d'un géant",
-    amende: { min: 500, max: 2500 }, prison: { max: 5 }, lien: "et",
-    qualif: "Profanation (art. 10 du Corpus Juriscivilis Imperialis)",
-    refs: ["nordique-viii", "nordique-ix", "nordique-x", "nordique-xii"],
-    notes: ["Inclut le prélèvement de défenses, os ou peaux d'un géant abattu illégalement.", "Exception : menace avérée ou mission ordonnée, menée par la Garde, les forces reconnues ou un titulaire de licence de régulation."],
-    keys: "geant mammouth chasse defense os peau"
-  },
-  {
-    id: "cimeterre", cat: "delit", dom: "armes", source: "texte",
-    nom: "Port, détention ou transport d'un cimeterre sans licence",
-    amende: 400, prison: null, lien: null,
-    mesures: ["Confiscation du cimeterre, remis ensuite à la Confrérie des Guerriers d'Alik'r"],
-    refs: ["rougegarde-ii", "rougegarde-iii", "rougegarde-iv", "rougegarde-comp4"],
-    notes: ["Licence personnelle et nominative, délivrée uniquement par la Confrérie des Guerriers d'Alik'r.", "Force uniquement en cas de nécessité."],
-    keys: "cimeterre sabre lame courbe rougegarde alikr licence"
-  },
-  {
-    id: "cimeterre-artisan", cat: "delit", dom: "armes", source: "texte",
-    nom: "Fabrication, réparation ou vente d'un cimeterre sans mandat de la Confrérie",
-    amende: 400, prison: null, lien: null,
-    mesures: ["Confiscation des cimeterres ou pièces concernées"],
-    refs: ["rougegarde-i", "rougegarde-iv"],
-    keys: "forgeron artisan cimeterre vente fabrication rougegarde"
-  },
-  {
-    id: "main-argent", cat: "delit", dom: "armes", source: "texte",
-    nom: "Détention, commerce ou dissimulation d'équipement de la Main d'Argent",
-    amende: { min: 500, max: 2000 }, prison: { max: 1 }, lien: "et",
-    mesures: ["Saisie immédiate de l'équipement"],
-    refs: ["main-argent-i", "main-argent-ii", "main-argent-iii", "main-argent-iv", "main-argent-v"],
-    notes: ["Sans titre de propriété valide délivré ou reconnu par la Main d'Argent.", "Passé le délai de 5 jours après promulgation, la détention est présumée volontaire."],
-    keys: "main d'argent silver hand armure arme poincon equipement"
-  },
-  {
-    id: "brulevapeur", cat: "delit", dom: "ressources", source: "texte",
-    nom: "Intrusion ou exploitation illégale de la mine de Brûlevapeur",
-    amende: { min: 0, max: 2500 }, prison: null, lien: null, amendeLabel: "Dédommagement",
-    qualif: "Infraction à l'art. IV du Corpus Juriscivilis Imperialis",
-    refs: ["brulevapeur-i", "brulevapeur-ii", "brulevapeur-iii"],
-    notes: ["Dédommagement jusqu'à 2 500 septims, et toute peine supérieure selon les ressources pillées.", "Soustraire, exploiter ou dégrader = circonstance aggravante.", "Catégorie (délit ou crime) non précisée par le décret."],
-    keys: "mine brulevapeur longue-braise malachite intrusion pillage"
-  },
+  /* ---------- B. DÉLITS ---------- */
+  { id: "armure", cat: "delit", dom: "identite",
+    nom: "Usurpation de l'armure officielle d'Estemarche",
+    amende: 1000, heures: 4, base: "Codex, Art. III.1 ; CJI, Art. 1", mesures: ["Restitution immédiate de l'armure"], refs: ["codex-iii-1"],
+    keys: "armure garde uniforme tenue officielle usurpation fonction" },
+  { id: "usurpation-noble", cat: "delit", dom: "identite",
+    nom: "Usurpation d'identité noble, officielle ou publique",
+    amende: { min: 1000, max: 2000 }, heures: { min: 4, max: 8 }, base: "Codex, Art. VI.1 ; CJI, Art. 1", refs: ["codex-vi-1"],
+    keys: "usurpation noble thane jarl officiel titre se faire passer" },
+  { id: "obtemperer-aggrave", cat: "delit", dom: "identite",
+    nom: "Refus d'obtempérer aggravé (violences, magie, potions)",
+    amende: 1000, heures: 4, base: "Codex, Art. VI.1 ; CJI, Art. 2", refs: ["codex-vi-1", "codex-ii-6"],
+    keys: "refus obtemperer violence magie potion resister fuite rebellion" },
+  { id: "intrusion-publique", cat: "delit", dom: "personnes",
+    nom: "Intrusion dans une propriété publique",
+    amende: 1000, heures: 4, base: "Codex, Art. VI.1 ; CJI, Art. 4", refs: ["codex-vi-1", "codex-ii-2"],
+    notes: ["Par exemple : appartements privés, salles du conseil, archives ou armureries du Palais sans autorisation."],
+    keys: "intrusion batiment public caserne archives armurerie palais reserve" },
+  { id: "enchanteur", cat: "delit", dom: "magie",
+    nom: "Exercice non enregistré de la profession d'enchanteur",
+    amende: 1000, heures: 4, base: "Codex, Art. V.4 ; CJI, Art. 1", refs: ["codex-v-4"],
+    notes: ["En cas de contestation ou de récidive : rétention conservatoire en vue de la présentation au magistrat."],
+    keys: "enchanteur enchantement enregistrement profession magie" },
+  { id: "violences", cat: "delit", dom: "personnes",
+    nom: "Violences physiques et agressions ordinaires",
+    amende: { min: 1000, max: 2000 }, heures: { min: 4, max: 8 }, base: "Codex, Art. VI.1 ; CJI, Art. 5", refs: ["codex-vi-1"],
+    notes: ["À main armée, par magie, en réunion (2+) ou contre un garde/légionnaire : crime."],
+    keys: "violence agression coup bagarre frapper blessure" },
+  { id: "vol", cat: "delit", dom: "personnes",
+    nom: "Vol et escroquerie ordinaires",
+    amende: { min: 1000, max: 2000 }, heures: { min: 4, max: 8 }, base: "Codex, Art. VI.1 ; CJI, Art. 6", refs: ["codex-vi-1"],
+    notes: ["Avec circonstances aggravantes (main armée, magie, réunion, contre garde/légionnaire) : crime."],
+    keys: "vol voler escroquerie arnaque pickpocket larcin" },
+  { id: "recel", cat: "delit", dom: "personnes",
+    nom: "Recel d'objets ordinaires",
+    amende: { min: 1000, max: 2000 }, heures: { min: 4, max: 8 }, base: "Codex, Art. VI.1 ; CJI, Art. 7", refs: ["codex-vi-1"],
+    mesures: ["Saisie conservatoire des objets"],
+    keys: "recel objets voles revendre receleur" },
+  { id: "baton", cat: "delit", dom: "magie",
+    nom: "Port d'un bâton de magie sans diplôme ni licence impériale",
+    amende: 2000, heures: 8, base: "Codex, Art. V.2 ; CJI, Art. 11", mesures: ["Saisie conservatoire immédiate du bâton"], refs: ["codex-v-2", "codex-v-1"],
+    notes: ["Titres valides : diplôme de l'Académie de Fortdhiver ou licence de port impériale."],
+    keys: "baton magie mage licence diplome fortdhiver college" },
+  { id: "gemme-noire", cat: "delit", dom: "magie",
+    nom: "Possession de gemme noire / capture d'âme humaine",
+    amende: 2000, heures: 8, base: "Codex, Art. VI.1 ; CJI, Art. 11", mesures: ["Saisie conservatoire"], refs: ["codex-v-3", "codex-vi-1"],
+    keys: "gemme noire ame humaine capture soul gem black" },
+  { id: "main-argent", cat: "delit", dom: "commerce",
+    nom: "Détention ou commerce d'armes/armures de la Main d'Argent",
+    amende: { min: 500, max: 2000 }, heures: { min: 2, max: 8 }, base: "Codex, Art. VII.1 à VII.4 ; CJI, Art. 6 & 7",
+    mesures: ["Saisie définitive des biens"], refs: ["codex-vii-1", "codex-vii-2", "codex-vii-3", "codex-vii-4", "codex-vii-5"],
+    notes: ["Applicable après le délai de grâce de 5 jours suivant la promulgation du décret."],
+    keys: "main d argent silver hand arme armure poincon commerce detention" },
+  { id: "malachite", cat: "delit", dom: "ressources", deferre: true,
+    nom: "Pillage de malachite / vol de minerai à Brûlevapeur",
+    amende: null, heures: null, base: "Codex, Art. VIII.3 ; CJI, Art. 6, 7 & 8",
+    mesures: ["Saisie du minerai"], refs: ["codex-viii-3", "codex-viii-1"],
+    notes: ["Le magistrat fixe les dommages-intérêts dus à la famille Longue-Braise (jusqu'à 2 500 septims ou plus)."],
+    keys: "malachite minerai mine brulevapeur pillage vol longue braise extraction" },
+  { id: "geant-fouilles", cat: "delit", dom: "ressources",
+    nom: "Chasse de géant sans licence / fouilles clandestines",
+    amende: { min: 500, max: 2500 }, heures: { min: 2, max: 10 }, base: "Codex, Art. IX.3, IX.9 & IX.12 ; CJI, Art. 4 & 6",
+    mesures: ["Saisie des dépouilles ou découvertes"], refs: ["codex-ix-9", "codex-ix-10", "codex-ix-3", "codex-ix-12"],
+    keys: "geant chasse braconnage fouille archeologie ruine tombe vestige patrimoine" },
+  { id: "culte", cat: "delit", dom: "magie",
+    nom: "Exercice non autorisé de cultes interdits (sans violence)",
+    amende: { min: 1000, max: 2500 }, heures: { min: 4, max: 10 }, base: "Codex, Art. VI.1 ; CJI, Art. 9", refs: ["codex-vi-1"],
+    notes: ["Cultes daedriques coercitifs ou sacrifices : crime."],
+    keys: "culte talos daedra priere interdit religion autel" },
+  { id: "profanation", cat: "delit", dom: "ressources",
+    nom: "Profanation ordinaire de sépultures ou sanctuaires",
+    amende: { min: 1000, max: 2500 }, heures: { min: 4, max: 10 }, base: "Codex, Art. VI.1 ; CJI, Art. 10", refs: ["codex-ix-12", "codex-ix-2"],
+    keys: "profanation tombe sepulture sanctuaire crypte stele pillage tombeau" },
 
-  /* ---------- CRIMES ---------- */
-  {
-    id: "baton", cat: "crime", dom: "magie", source: "bareme",
-    nom: "Port ou usage d'un bâton de magie sans diplôme de l'Académie de Fortdhiver",
-    amende: 2000, prison: 2, lien: "ou",
-    qualif: "Art. 11 du Corpus Juriscivilis Imperialis",
-    mesures: ["Confiscation définitive du bâton"],
-    refs: ["magie-i", "magie-ii"],
-    keys: "baton magie staff mage diplome academie fortdhiver"
-  },
-  {
-    id: "magie", cat: "crime", dom: "magie", source: "bareme",
-    nom: "Utilisation de la magie non autorisée",
-    amende: 1000, prison: 3, lien: "et",
-    refs: [],
-    notes: ["Infraction prévue uniquement par le barème (pas d'article détaillé dans le recueil)."],
-    keys: "sort magie lancer sortilege destruction invocation"
-  },
-  {
-    id: "enchanteur", cat: "crime", dom: "magie", source: "bareme",
-    nom: "Exercice de l'activité d'enchanteur sans enregistrement auprès de la Cour",
-    amende: 1000, prison: null, lien: null,
-    refs: ["magie-iv"],
-    keys: "enchanteur enchantement enregistrement"
-  },
-  {
-    id: "armure", cat: "crime", dom: "militaire", source: "bareme",
-    nom: "Port non autorisé de l'armure officielle (Sombrages / Stormcloak)",
-    amende: 500, prison: 2, lien: "ou",
-    qualif: "Usurpation de titre et d'autorité (art. 1 du Corpus Juriscivilis Imperialis)",
-    mesures: ["Restitution immédiate de l'armure à la Châtellerie"],
-    refs: ["forces-i"],
-    keys: "armure sombrage stormcloak usurpation uniforme garde"
-  },
-  {
-    id: "attentat", cat: "crime", dom: "palais", source: "bareme",
-    nom: "Tentative d'attentat, complot, espionnage, vol au Palais ou usurpation du Trône",
-    amende: null, prison: null, lien: null, peineSpeciale: "Exécution immédiate",
-    qualif: "Crime contre la Châtellerie",
-    refs: ["palais-iv", "palais-i"],
-    notes: ["Inclut le fait de s'asseoir sur le Trône du Jarl ou d'en usurper les attributs."],
-    keys: "attentat complot espion espionnage vol palais trone assassinat jarl execution"
-  }
+  /* ---------- C. CRIMES ---------- */
+  { id: "trone", cat: "crime", dom: "etat", deferre: true,
+    nom: "Attentat, complot, espionnage ou usurpation du Trône du Jarl",
+    base: "Codex, Art. II.4 ; CJI, Titre III", mesures: ["Arrestation immédiate"], refs: ["codex-ii-4"],
+    keys: "trone jarl complot attentat espionnage espion assis usurpation trahison" },
+  { id: "archives", cat: "crime", dom: "etat", deferre: true,
+    nom: "Vol d'archives officielles ou violation du secret du Conseil",
+    base: "Codex, Art. II.8 ; CJI, Art. 6 & 7", mesures: ["Saisie des documents"], refs: ["codex-ii-8"],
+    keys: "archives documents registre secret conseil falsification copie" },
+  { id: "milices", cat: "crime", dom: "etat", deferre: true,
+    nom: "Commandement de milices privées / troupes extérieures non autorisées",
+    base: "Codex, Art. III.3 & III.5 ; CJI, Art. 1 & 17", mesures: ["Sommation", "Rétention des chefs"], refs: ["codex-iii-3", "codex-iii-5"],
+    notes: ["Troupe extérieure de plus de 10 hommes sans accord de la Cour. Ne s'applique pas à la Légion impériale ni aux forces impériales sous mandat."],
+    keys: "milice troupe armee clan paramilitaire mercenaire" },
+  { id: "aggrave", cat: "crime", dom: "personnes", deferre: true,
+    nom: "Vol, recel ou violences aggravés (main armée, magie, réunion de 2+, contre garde/légionnaire)",
+    base: "Codex, Art. VI.1 ; CJI, Art. 8", mesures: ["Arrestation"], refs: ["codex-vi-1"],
+    keys: "vol recel violence aggrave arme magie groupe reunion garde legionnaire braquage" },
+  { id: "necromancie", cat: "crime", dom: "magie", deferre: true,
+    nom: "Nécromancie, cultes daedriques coercitifs ou sacrifices profanes",
+    base: "Codex, Art. V.5 & VI.1 ; CJI, Art. 9, 10 & 16", mesures: ["Saisie"], refs: ["codex-v-5", "codex-vi-1"],
+    keys: "necromancie necromancien daedra invocation sacrifice rituel cadavre" },
+  { id: "magie-offensive", cat: "crime", dom: "magie", deferre: true,
+    nom: "Usage offensif, coercitif ou destructeur de la magie",
+    base: "Codex, Art. VI.1 ; CJI, Art. 11", mesures: ["Saisie"], refs: ["codex-v-5", "codex-vi-1"],
+    keys: "magie sort attaque destruction feu eclair controle esprit coercition" },
+  { id: "meurtre", cat: "crime", dom: "personnes", deferre: true,
+    nom: "Meurtre, assassinat, torture, séquestration, évasion",
+    base: "Codex, Art. VI.1 ; CJI, Art. 12 à 15", mesures: ["Arrestation"], refs: ["codex-vi-1", "codex-vi-4"],
+    keys: "meurtre assassinat tuer homicide torture sequestration enlevement evasion" },
+  { id: "creatures", cat: "crime", dom: "magie", deferre: true,
+    nom: "Maintien clandestin de créatures profanes (vampires, lycanthropes)",
+    base: "Codex, Art. VI.1 ; CJI, Art. 16", mesures: ["Arrestation"], refs: ["codex-vi-1"],
+    keys: "vampire loup garou lycanthrope creature profane" },
+  { id: "corruption", cat: "crime", dom: "etat", deferre: true,
+    nom: "Abus de pouvoir et corruption d'officiel",
+    base: "Codex, Art. VI.1 ; CJI, Art. 17", mesures: ["Suspension"], refs: ["codex-vi-1"],
+    keys: "corruption pot de vin abus pouvoir officiel garde soudoyer" }
 ];
