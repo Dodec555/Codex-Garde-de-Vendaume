@@ -1,0 +1,9 @@
+MUR DES CROQUIS — Codex de la Garde d'Estemarche
+
+Déposez ici vos images (PNG, JPG, WEBP, GIF, BMP, SVG). Elles apparaissent
+automatiquement dans l'onglet « Mur des croquis » du site, sans script.
+
+- Le nom du fichier sert de titre : "portrait_suspect_marche.png" -> "portrait suspect marche".
+- Les sous-dossiers deviennent des rubriques sur le mur (ex. "Plans", "Portraits").
+
+Sur GitHub : ouvrez ce dossier dans le dépôt > "Add file" > "Upload files" > "Commit changes".
