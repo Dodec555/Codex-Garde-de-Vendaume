@@ -310,7 +310,7 @@ textarea:focus, input[type="text"]:focus, input[type="number"]:focus { outline: 
 .g-title { font-family: var(--font-display); font-weight: 700; font-size: 17px; margin: 0; }
 .g-title a { font: 500 12.5px var(--font-body); margin-left: 8px; }
 .g-sub { margin: 2px 0 0; color: var(--muted); font-size: 13.5px; max-width: 70ch; }
-.g-rows { list-style: none; padding: 0; margin: 12px 0 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.g-rows { list-style: none; padding: 0; margin: 12px 0 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .g-rows li { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; background: var(--bg); border-radius: 8px; font-size: 13.5px; align-items: flex-start; }
 .g-rows b { font-variant-numeric: tabular-nums; font-size: 14px; }
 .g-rows li > span:last-child { color: var(--accent); font-weight: 600; }
@@ -360,3 +360,5 @@ textarea:focus, input[type="text"]:focus, input[type="number"]:focus { outline: 
   .toc-subs { display: none !important; } .toc .toc-label { margin-top: 10px; }
 }
 .art ul.numbered { list-style: none; padding-left: 0; }
+.tl-warn { color: var(--delit, var(--crime)); font-weight: 500; }
+.g-note + .g-note { margin-top: 6px; }

@@ -36,19 +36,22 @@
   const fmtAmende = a => rng(a, " septims");
   const fmtHeures = h => rng(h, " h");
   const DEFERE = "Rétention 24 h + déféré au magistrat";
+  const SAISIE_EQ = "Saisie de biens de valeur équivalente";
+  const procOf = i => i.proc || DEFERE;
   function sanctionHTML(i) {
     let html;
-    if (i.deferre) html = `<span class="s-special">${DEFERE}</span>`;
+    if (i.deferre) html = `<span class="s-special">${esc(procOf(i))}</span>`;
     else {
       const a = fmtAmende(i.amende), h = fmtHeures(i.heures);
-      html = [a && `<span class="s-amende">${a}</span>`, h && `<span class="s-prison">${h} corvée / prison</span>`]
+      html = [a && `<span class="s-amende">${a}</span>`, h && `<span class="s-prison">${h} corvée / prison</span>`,
+        i.cat === "contravention" && `<span class="s-prison">saisie équivalente</span>`]
         .filter(Boolean).join(` <em class="s-op">ou</em> `);
     }
     (i.mesures || []).forEach(m => { html += ` <em class="s-op">+</em> <span class="s-mesure">${esc(m)}</span>`; });
     return html;
   }
   function sanctionText(i) {
-    let t = i.deferre ? DEFERE : [fmtAmende(i.amende) && `Amende de ${fmtAmende(i.amende)}`, fmtHeures(i.heures) && `${fmtHeures(i.heures)} de corvée`, fmtHeures(i.heures) && `${fmtHeures(i.heures)} d'emprisonnement`].filter(Boolean).join(" OU ");
+    let t = i.deferre ? procOf(i) : [fmtAmende(i.amende) && `Amende de ${fmtAmende(i.amende)}`, fmtHeures(i.heures) && `${fmtHeures(i.heures)} de corvée`, fmtHeures(i.heures) && `${fmtHeures(i.heures)} d'emprisonnement`, i.cat === "contravention" && SAISIE_EQ.toLowerCase()].filter(Boolean).join(" OU ");
     (i.mesures || []).forEach(m => t += " + " + m.charAt(0).toLowerCase() + m.slice(1));
     return t;
   }
@@ -118,7 +121,7 @@
         <div><dt>Catégorie</dt><dd>${catLabel(i.cat)}</dd></div>
         <div><dt>Sanction</dt><dd>${esc(sanctionText(i))}</dd></div>
         <div><dt>Fondement légal</dt><dd>${esc(i.base)}</dd></div>
-        <div><dt>Procédure</dt><dd>${i.deferre ? "Arrestation, rétention conservatoire (24 h max) et présentation au magistrat" : "Sanction directe par la Garde ; rétention 24 h en cas de refus ou de contestation"}</dd></div>
+        <div><dt>Procédure</dt><dd>${i.procInfo ? esc(i.procInfo) : i.deferre ? "Arrestation, rétention conservatoire (24 h max) et présentation au magistrat" : i.cat === "contravention" ? "Sanction directe par la Garde : amende OU saisie de biens de valeur équivalente (ni prison ni corvée) ; rétention 24 h en cas de refus ou de contestation" : "Sanction directe par la Garde (formule tri-partite) ; rétention 24 h en cas de refus ou de contestation"}</dd></div>
       </dl>
       ${i.notes && i.notes.length ? `<ul class="notes">${i.notes.map(n => `<li>${esc(n)}</li>`).join("")}</ul>` : ""}
       ${refs.length ? `<div class="refs"><h4>Textes applicables</h4>${refs.map(a => `
@@ -159,6 +162,8 @@
   const lo = v => v == null ? 0 : typeof v === "number" ? v : v.min;
   const hi = v => v == null ? 0 : typeof v === "number" ? v : v.max;
   const MODES = { amende: "Amende", corvee: "Corvée", prison: "Prison" };
+  const MODES_C = { amende: "Amende", saisie: "Saisie équivalente" };
+  const modesOf = i => i.cat === "contravention" ? MODES_C : MODES;
   function toggleDossier(id) {
     const idx = dossier.findIndex(d => d.id === id);
     const i = INF.find(x => x.id === id);
@@ -171,15 +176,26 @@
   }
   function lineValues(d) {
     const i = INF.find(x => x.id === d.id);
-    const v = { i, amende: 0, corvee: 0, prison: 0, deferre: !!i.deferre };
+    const v = { i, amende: 0, corvee: 0, prison: 0, saisie: 0, deferre: !!i.deferre };
     if (!i.deferre) {
       if (d.choix === "amende") v.amende = d.amende;
+      else if (d.choix === "saisie") v.saisie = d.amende;
       else if (d.choix === "corvee") v.corvee = d.heures;
       else v.prison = d.heures;
     }
     return v;
   }
-  const retenuText = v => v.deferre ? DEFERE : v.amende ? `amende de ${nf(v.amende)} septims` : v.corvee ? `${nf(v.corvee)} h de corvée` : `${nf(v.prison)} h d'emprisonnement`;
+  const retenuText = v => v.deferre ? procOf(v.i) : v.amende ? `amende de ${nf(v.amende)} septims` : v.saisie ? `saisie de biens d'une valeur de ${nf(v.saisie)} septims` : v.corvee ? `${nf(v.corvee)} h de corvée` : `${nf(v.prison)} h d'emprisonnement`;
+  // Non-cumul (Fiche de poche, Répertoire unifié) : seule la sanction du rang le plus élevé est notifiée et perçue.
+  function retenue(lines) {
+    if (!lines.length) return null;
+    const top = Math.max(...lines.map(v => CAT_ORDER[v.i.cat]));
+    const tops = lines.filter(v => CAT_ORDER[v.i.cat] === top);
+    const proc = tops.find(v => v.deferre) || lines.find(v => v.deferre);
+    if (proc) return { v: proc, procs: [...new Set(lines.filter(v => v.deferre).map(v => procOf(v.i)))] };
+    const weight = v => v.amende + v.saisie + (v.corvee + v.prison) * 250;
+    return { v: tops.slice().sort((a, b) => weight(b) - weight(a))[0], procs: [] };
+  }
   function renderDossier() {
     const cnt = $("#dossier-count");
     cnt.hidden = !dossier.length; cnt.textContent = dossier.length;
@@ -190,15 +206,15 @@
       const i = INF.find(x => x.id === d.id);
       let ctrl = "";
       if (!i.deferre) {
-        ctrl += `<div class="seg" role="radiogroup" aria-label="Option choisie par le prévenu">${Object.entries(MODES).map(([m, lab]) =>
+        ctrl += `<div class="seg" role="radiogroup" aria-label="Option choisie par le prévenu">${Object.entries(modesOf(i)).map(([m, lab]) =>
           `<button type="button" class="${d.choix === m ? "is-on" : ""}" data-choix="${m}" data-k="${k}">${lab}</button>`).join("")}</div>`;
-        if (d.choix === "amende" && typeof i.amende === "object")
+        if ((d.choix === "amende" || d.choix === "saisie") && typeof i.amende === "object")
           ctrl += `<label class="range-in">Montant retenu (${nf(i.amende.min)} – ${nf(i.amende.max)})
             <input type="number" min="${i.amende.min}" max="${i.amende.max}" step="50" value="${d.amende}" data-amende="${k}"> septims</label>`;
-        if (d.choix !== "amende" && typeof i.heures === "object")
+        if ((d.choix === "corvee" || d.choix === "prison") && typeof i.heures === "object")
           ctrl += `<label class="range-in">Durée retenue (${i.heures.min} – ${i.heures.max} h)
             <input type="number" min="${i.heures.min}" max="${i.heures.max}" step="1" value="${d.heures}" data-heures="${k}"> h</label>`;
-      } else ctrl = `<p class="d-deferre">Pas de sanction directe : placement en rétention conservatoire et présentation au magistrat.</p>`;
+      } else ctrl = `<p class="d-deferre">${i.procInfo ? esc(i.procInfo) + "." : "Pas de sanction directe : placement en rétention conservatoire et présentation au magistrat."}</p>`;
       return `<li class="d-item">
         <div class="d-top">
           <span class="pill pill-${i.cat}">${catLabel(i.cat)}</span>
@@ -214,49 +230,54 @@
     renderTotal();
   }
   function renderTotal() {
-    let amende = 0, corvee = 0, prison = 0, deferres = 0; const mesures = [], lines = [];
+    const mesures = [], lines = [];
     dossier.forEach(d => {
       const v = lineValues(d);
-      amende += v.amende; corvee += v.corvee; prison += v.prison; if (v.deferre) deferres++;
       (v.i.mesures || []).forEach(m => { if (!mesures.includes(m)) mesures.push(m); });
       lines.push(v);
     });
-    const n = c => dossier.filter(d => INF.find(x => x.id === d.id).cat === c).length;
+    const noble = $("#d-noble").value;
+    const n = c => lines.filter(v => v.i.cat === c).length;
     const nc = n("contravention"), nd = n("delit"), ncr = n("crime");
+    const R = retenue(lines);
+    const eteint = noble === "noble-isole" && lines.length === 1 && !lines[0].deferre && lines[0].i.cat !== "crime";
+    const nobleRecid = noble === "noble-recidive" && !lines.some(v => v.i.cat === "crime" && v.i.sang);
+    let sancLabel = "—", sancOut = "";
+    if (R) {
+      if (eteint) { sancLabel = "Éteinte de plein droit (noble, infraction isolée sous 7 jours)"; sancOut = "aucune poursuite — infraction isolée d'un noble sous 7 jours, éteinte de plein droit (De Re Nobilitatis, Art. 13)"; }
+      else if (R.procs.length) { sancLabel = R.procs.join(" + "); sancOut = R.procs.map(p => p.charAt(0).toLowerCase() + p.slice(1)).join(" + "); }
+      else { sancLabel = retenuText(R.v); sancLabel = sancLabel.charAt(0).toUpperCase() + sancLabel.slice(1); sancOut = retenuText(R.v); }
+    }
+    const nobleWarn = nobleRecid && R && !eteint && !R.procs.length && !(R.v.amende) ?
+      `<p class="tl-hint tl-warn">Noble en récidive sous 7 jours : l'amende doit lui être proposée en priorité (De Re Nobilitatis, Art. 13).</p>` : "";
+    const nobleIsoWarn = noble === "noble-isole" && !eteint && lines.length > 1 && !lines.some(v => v.i.cat === "crime") ?
+      `<p class="tl-hint tl-warn">Plusieurs infractions relevées : l'extinction de plein droit ne vaut que pour une infraction isolée sous 7 jours.</p>` : "";
     $("#total-lines").innerHTML = !dossier.length ? `<p class="muted">Ajoutez des infractions pour calculer la sanction.</p>` : `
-      ${deferres ? `<div class="tl tl-alert"><span>Procédure</span><strong>Rétention 24 h + déféré au magistrat</strong></div>` : ""}
-      <div class="tl"><span>Amende totale</span><strong>${amende ? nf(amende) + " septims" : "—"}</strong></div>
-      <div class="tl"><span>Corvée</span><strong>${corvee ? nf(corvee) + " h" : "—"}</strong></div>
-      <div class="tl"><span>Emprisonnement</span><strong>${prison ? nf(prison) + " h" : "—"}</strong></div>
+      ${R.procs.length && !eteint ? `<div class="tl tl-alert"><span>Procédure</span><strong>${esc(sancLabel)}</strong></div>` : `<div class="tl"><span>Sanction retenue</span><strong>${esc(sancLabel)}</strong></div>`}
+      ${R && !eteint ? `<div class="tl"><span>Infraction retenue</span><strong>${esc(R.v.i.nom)}</strong></div>` : ""}
       <div class="tl"><span>Qualification</span><strong>${[nc && `${nc} ${plural(nc, "contravention", "contraventions")}`, nd && `${nd} ${plural(nd, "délit", "délits")}`, ncr && `${ncr} ${plural(ncr, "crime", "crimes")}`].filter(Boolean).join(" · ")}</strong></div>
-      ${mesures.length ? `<div class="tl tl-col"><span>Mesures</span><ul>${mesures.map(m => `<li>${esc(m)}</li>`).join("")}</ul></div>` : ""}
-      <p class="tl-hint">En cas de refus d'exécution, de contestation ou de rébellion : rétention conservatoire 24 h max.</p>`;
+      ${mesures.length && !eteint ? `<div class="tl tl-col"><span>Mesures</span><ul>${mesures.map(m => `<li>${esc(m)}</li>`).join("")}</ul></div>` : ""}
+      ${nobleWarn}${nobleIsoWarn}
+      <p class="tl-hint">Non-cumul : seule la sanction du rang le plus élevé est notifiée et perçue. En cas de refus d'exécution, de contestation ou de rébellion : rétention conservatoire 24 h max.</p>`;
 
     const nom = $("#d-nom").value.trim(), lieu = $("#d-lieu").value.trim();
     const out = [];
-    if (nom) out.push(`Contrevenant : ${nom}`);
+    if (nom) out.push(`Contrevenant : ${nom}${noble !== "roturier" ? " (noble)" : ""}`);
     if (lieu) out.push(`Lieu : ${lieu}`);
-    const infLines = lines.map(v => `- [${catLabel(v.i.cat)}] ${v.i.nom} — ${retenuText(v)} (${v.i.base})`);
-    const sanc = [];
-    if (amende) sanc.push(`amende de ${nf(amende)} septims`);
-    if (corvee) sanc.push(`${nf(corvee)} h de corvée`);
-    if (prison) sanc.push(`${nf(prison)} h d'emprisonnement`);
-    if (deferres) sanc.push("rétention conservatoire (24 h max) et déféré au magistrat");
+    const infLines = lines.map(v => `- [${catLabel(v.i.cat)}] ${v.i.nom} (${v.i.base})`);
     if (dossier.length) {
       if (out.length) out.push("");
-      out.push("## Infractions relevées", ...infLines, "", "## Sanction");
-      if (amende) out.push(`Amende totale : ${nf(amende)} septims`);
-      if (corvee) out.push(`Corvée : ${nf(corvee)} h`);
-      if (prison) out.push(`Emprisonnement : ${nf(prison)} h`);
-      if (deferres) out.push("Procédure : rétention conservatoire (24 h max) et déféré au magistrat");
-      if (mesures.length) out.push(`Mesures : ${mesures.join(" ; ")}`);
+      out.push("## Infractions relevées", ...infLines, "", "## Sanction (non-cumul : rang le plus élevé)");
+      out.push(`Sanction notifiée : ${sancOut}`);
+      if (R && !eteint) out.push(`Infraction retenue : ${R.v.i.nom}`);
+      if (mesures.length && !eteint) out.push(`Mesures : ${mesures.join(" ; ")}`);
     }
     $("#recap").textContent = out.join("\n") || "Le récapitulatif apparaîtra ici.";
     const m = [];
     if (dossier.length) {
       m.push("Infractions relevées :", ...infLines);
-      m.push(`Sanction appliquée : ${sanc.join(" + ") || "à fixer"}`);
-      if (mesures.length) m.push(`Mesures complémentaires : ${mesures.join(" ; ")}`);
+      m.push(`Sanction appliquée (non-cumul) : ${sancOut || "à fixer"}`);
+      if (mesures.length && !eteint) m.push(`Mesures complémentaires : ${mesures.join(" ; ")}`);
     }
     dossierSummary = { mesures: m.join("\n"), nom, lieu };
   }
@@ -272,7 +293,8 @@
     if (t.dataset.heures != null) dossier[+t.dataset.heures].heures = clamp(parseFloat(t.value), +t.min, +t.max);
     renderTotal();
   });
-  ["#d-nom", "#d-lieu"].forEach(s => $(s).addEventListener("input", renderTotal));
+  ["#d-nom", "#d-lieu", "#d-noble"].forEach(s => $(s).addEventListener("input", renderTotal));
+  $("#d-noble").addEventListener("change", renderTotal);
   $("#clear-dossier").addEventListener("click", () => { dossier = []; renderDossier(); toast("Dossier vidé"); });
   $("#copy-recap").addEventListener("click", async () => {
     const txt = $("#recap").textContent;
@@ -289,7 +311,7 @@
   /* ---------- Recueil ---------- */
   function renderToc() {
     const group = doc => LAWS.filter(l => l.doc === doc).map(l => {
-      const subs = l.sections.map((s, k) => s.titre && l.doc === "codex" ? `<li><a class="toc-sub" href="#/recueil/${l.id}-s${k}" data-law="${l.id}">${esc(s.titre.replace(/^Titre ([IVX]+) — /, "$1. "))}</a></li>` : "").join("");
+      const subs = l.sections.map((s, k) => s.titre ? `<li><a class="toc-sub" href="#/recueil/${l.id}-s${k}" data-law="${l.id}">${esc(s.titre.replace(/^Titre ([IVX]+) — /, "$1. "))}</a></li>` : "").join("");
       return `<li><a href="#/recueil/${l.id}" data-law="${l.id}">${esc(l.titre)}</a>${subs ? `<ol class="toc-subs">${subs}</ol>` : ""}</li>`;
     }).join("");
     $("#toc").innerHTML = `<p class="toc-label">Grand Codex d'Estemarche</p><ol>${group("codex")}</ol>
